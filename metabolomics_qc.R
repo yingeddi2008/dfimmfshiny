@@ -336,8 +336,8 @@ server <- function(input, output, session) {
       reshape2::dcast(sampleid+compound_name+conc ~ itsd,value.var="peakarea") %>%
       mutate(#peak = ifelse(peak <= 10000,0,peak),
         norm_peak=peak / ITSD) %>%
-      filter(grepl("\\_CC[0-9]",sampleid)) %>%
-      mutate(curveLab=str_extract(sampleid,"CC[0-9]+")) %>%
+      mutate(curveLab=str_extract(sampleid,"\\_CC[1-9]+\\_|\\_CC[1-9][0-9]+\\_"),
+          curveLab=gsub("\\_","",curveLab)) %>%
       left_join(conc_tbl()) %>%
       left_join(cutoff_df()) %>%
       filter(conc_val <= maxcc,
@@ -373,7 +373,8 @@ server <- function(input, output, session) {
       mutate(#peak = ifelse(peak <= 10000,0,peak),
         norm_peak=peak / ITSD) %>%
       filter(grepl("\\_CC[0-9]",sampleid)) %>%
-      mutate(curveLab=str_extract(sampleid,"CC[0-9]+")) %>%
+       mutate(curveLab=str_extract(sampleid,"\\_CC[1-9]+\\_|\\_CC[1-9][0-9]+\\_"),
+          curveLab=gsub("\\_","",curveLab)) %>%
       left_join(conc_tbl()) %>%
       left_join(cutoff_df()) %>%
       filter(conc_val <= maxcc,
