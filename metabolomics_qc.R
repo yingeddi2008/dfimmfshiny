@@ -189,92 +189,107 @@ make_norm_conc_tbl <- function(df,
 }
 
 
-
-
 # set up directory and files ----------------------------------------------
 
 #system("open .")
-dir <- setwd("/Volumes/chaubard-lab/shiny_workspace/csvs/")
-#dir <- setwd("/Volumes/chaubard-lab/shiny_workspace/csvs/")
-#files <- dir(pattern="csv$",recursive=T)
+wddir <- "/Volumes/chaubard-lab/shiny_workspace/csvs/"
 
 # ui ----------------------------------------------------------------------
 
-ui <- bootstrapPage(
-    tags$style(type="text/css",
-               ".shiny-output-error { visibility: hidden; }",
-               ".shiny-output-error:before { visibility: hidden; }"
-    ),
-  theme = shinytheme("yeti"),
-  titlePanel("DFI Metabolomics QC (v1.4)"),
-  fluidRow(column(3,selectInput("filename", "Select csv:", list.files(pattern="csv$")))),
-                  #selectInput("filename", "Select csv:", choices = files))),
+ui <- fluidPage(
+  # shinythemes::themeSelector(),
+  titlePanel("DFI Metabolomics QC (v1.5)"),
+  br(),
+  
+# CSV file selector -------------------------------------------------------
+
+  fluidRow(column(width = 4,
+    wellPanel(
+      actionButton("refresh_csv", "Refresh CSV files"),
+      selectInput("filename", "Select a CSV file from: ", list.files(wddir, pattern="csv$"))
+      )
+    )
+  ),
+
+# tabs --------------------------------------------------------------------
+
   tabsetPanel(type="tabs",
-    tabPanel("Quant QC",
-  #fluidRow(3,textInput("directory","Enter working directory:",value="/Volumes/pamer-lab/Eric.Littmann/Projects/jean-luc/dfi_readin/")),
-  fluidRow(#column(3,selectInput("filename", "Select csv:", choices = files)),
-           column(5,textInput("compounds","Enter compounds (comma separated):",
-                              value="Acetate,Propionate,Butyrate"),
-                  ),
-           column(2, textInput("xfactor","Mult factor:",
-                               value=11)),
-           column(2,textInput("start","Enter concentration(s):",
-                              "100")),
-           column(2,numericInput("series","dilution #",8))),
-  #fluidRow(dataTableOutput("table")),
-  #fluidRow(dataTableOutput("conc")),
-  fluidRow(column(3,textInput("maxcc","Max conc(s) filter:",
-                               "100,100,100")),
-           column(3,textInput("mincc","Min conc(s) filter:",
-                              "0,0,0"))),
-  fluidRow(dataTableOutput("model")),
-  fluidRow(plotOutput("quant")),
-  fluidRow(dataTableOutput("quant_tbl")),
-  fluidRow(downloadButton("downloadData", "Download Quant Table:"))
-    ),
-  tabPanel("Normalization",
-           #fluidRow(column(3,selectInput("filename2", "Select csv:", choices = files))),
-           fluidRow(column(3,textInput("dil_compounds","diluted standards:",
-                                value="Valine_D8,Valerate")),
-                    column(3,textInput("conc_compounds","concentrated standards:",
-                                       "Succinate,Proline_D7,Phenol")),
-                    column(3,numericInput("zero_val","minimum value:",
-                                       value=5000))),
-           fluidRow(column(2,uiOutput("compound_list")),
-                    column(9,plotOutput("raw_boxplots",height="1400px"))),
-           fluidRow(dataTableOutput("conc_filter")),
-           fluidRow(dataTableOutput("normwide"),
-           fluidRow(downloadButton("downloadData2", "Download Normalized Table:")))
+              # quant QC UI -------------------------------------------------------------
+              tabPanel("Quant QC", theme = shinytheme("flatly"),
+                       sidebarLayout(
+                         sidebarPanel(width = 3,
+                                      textInput("compounds","Enter ITSD compounds (comma separated):",
+                                                value="Acetate,Propionate,Butyrate"),
+                                      br(),
+                                      h4("ITSD dilution calculation"),
+                                      numericInput("xfactor","Mult factor:",value = 11),
+                                      numericInput("start","Enter concentration(s):",value = 100),
+                                      numericInput("series","dilution #",8),
+                                      br(),
+                                      h4("Filters:"),
+                                      textInput("maxcc","Max conc(s) filter:","100,100,100"),
+                                      textInput("mincc","Min conc(s) filter:","0,0,0"),
+                         ),
+                         mainPanel(
+                           plotOutput("quant"),
+                           h4("Fitted linear model stats:"),
+                           dataTableOutput("model"),
+                           h4("Standardized table:"),
+                           dataTableOutput("quant_tbl"),
+                           downloadButton("downloadData", "Download Quant Table")
+                         )
+                       )
+              ),
+              
+              # Normalization UI --------------------------------------------------------
+              
+              tabPanel("Normalization",fluidPage(theme = shinytheme("flatly")),
+                       sidebarLayout(
+                         sidebarPanel(width = 3,
+                                      br(),
+                                      h4("Type in ITSD"),
+                                      textInput("dil_compounds","diluted standards:", value="Valine_D8,Valerate"),
+                                      textInput("conc_compounds","concentrated standards:",value="Succinate,Proline,Phenol"),
+                                      br(),
+                                      numericInput("zero_val","minimum value:",value=5000)
+                         ),
+                         mainPanel(
+                           splitLayout(cellWidths = c("25%","75%"),
+                                       uiOutput("compound_list"),
+                                       plotOutput("raw_boxplots",height="1400px")),
+                           h4("Intermediate table:"),
+                           dataTableOutput("conc_filter"),
+                           h4("Normalized table:"),
+                           dataTableOutput("normwide"),
+                           downloadButton("downloadData2", "Download Normalized Table")
+                         )
+                       )
+              ),
+              
+              
+              # more --------------------------------------------------------------------
+              
+              tabPanel("More",fluidPage(theme = shinytheme("flatly")),
+                       h3("In construction for some awesome stuff!")
+                       )
+              
   )
-)
+  
 )
 
 # server ------------------------------------------------------------------
 
 server <- function(input, output, session) {
+
   
-  #make reactive directory stuff
-  has.new.files <- function() {
-    unique(list.files())
-  }
-  get.files <- function() {
-    list.files()
-  }
-  
-  # store as a reactive instead of output
-  my_files <- reactivePoll(10, session, 
-                           checkFunc=has.new.files, 
-                           valueFunc=get.files)
-  
-  # any time the reactive changes, update the selectInput
-  observeEvent(my_files(),ignoreInit = T,ignoreNULL = T, {
-    print(my_files())
-    updateSelectInput(session, 'file',choices = my_files())
+  # refresh CSV list when hit button
+  observeEvent(input$refresh_csv,ignoreInit = T,ignoreNULL = T, {
+    print(list.files(wddir, pattern = "csv$"))
+    updateSelectInput(session, 'filename', choices = list.files(wddir, pattern = "csv$"))
   })
   
   
 # quant qc tab ------------------------------------------------------------
-
   
   #make concentration table
   conc_tbl <- reactive({
@@ -304,13 +319,16 @@ server <- function(input, output, session) {
              mincc=as.numeric(mincc))
   })
   
+  # read in table as reactive 
+  meta <- reactive({ readin_meta_csv_single_file(file.path(wddir,input$filename)) })
+  
   #show models and make plots
   modelstart <- reactive({
-    meta <- readin_meta_csv_single_file(input$filename)
+    
     compounds = unlist(strsplit(input$compounds, split=","))
     compounds = factor(compounds,level=unique(compounds))
     
-    model <- meta %>%
+    model <- meta() %>%
       filter(compound_name %in% compounds,
              conc=="diluted") %>%
       mutate(compound_name=factor(compound_name,levels=compounds)) %>%
@@ -328,25 +346,25 @@ server <- function(input, output, session) {
       summarize(r = cor(norm_peak,conc_val),
                 model_list <- broom::tidy(lm(norm_peak ~ conc_val))) %>%
       reshape2::dcast(compound_name+r ~ term,value.var="estimate") %>%
-      dplyr::rename(slope_value=conc_val)
+      dplyr::rename(slope_value=conc_val) 
   })
   
   output$model <- renderDataTable(
-    modelstart()
+    modelstart() %>%
+      datatable() %>%
+      formatRound(c(2:4), 3) %>% 
+      formatStyle(columns = c(2:4), 'text-align' = 'center')
   )
   
   
   
   #make quant graph
-  
   quant_plot <- reactive({
-    meta <- readin_meta_csv_single_file(input$filename)
 
     compounds = unlist(strsplit(input$compounds, split=","))
     compounds = factor(compounds,level=unique(compounds))
     
-    
-    meta %>%
+    meta() %>%
       filter(compound_name %in% compounds,
              conc=="diluted") %>%
       mutate(compound_name=factor(compound_name,levels=unique(compounds))) %>%
@@ -374,11 +392,11 @@ server <- function(input, output, session) {
   
   #make quant table
   quant_table <- reactive({
-    meta <- readin_meta_csv_single_file(input$filename)
+    
     compounds = unlist(strsplit(input$compounds, split=","))
     
     
-    meta %>%
+    meta() %>%
       filter(compound_name %in% compounds,
              conc=="diluted") %>%
       replace_na(list(itsd="peak")) %>%
@@ -394,16 +412,18 @@ server <- function(input, output, session) {
   })
   
   output$quant_tbl <- renderDataTable(
-    quant_table()
+    quant_table() %>%
+      datatable() %>%
+      formatRound(c(4:ncol(quant_table())), 3) %>% 
+      formatStyle(columns = c(4:ncol(quant_table())), 'text-align' = 'center')
   )
   
   quant_table_dl <- reactive({
-    meta <- readin_meta_csv_single_file(input$filename)
+    
     compounds = unlist(strsplit(input$compounds, split=","))
     #compounds = factor(compounds,level=unique(compounds))
     
-    
-    meta %>%
+    meta() %>%
       filter(compound_name %in% compounds,
              conc=="diluted") %>%
       replace_na(list(itsd="peak")) %>%
@@ -438,7 +458,7 @@ server <- function(input, output, session) {
 # normalization tab -------------------------------------------------------
   
   rawdf <- reactive({ 
-    readin_meta_csv_single_file(input$filename,na.value = input$zero_val) 
+    readin_meta_csv_single_file(file.path(wddir,input$filename),na.value = input$zero_val) 
   })
   
   csv <- reactive({
@@ -537,7 +557,10 @@ server <- function(input, output, session) {
   })
   
   output$conc_filter <- renderDataTable(
-    subset_conc()
+    subset_conc() %>%
+      datatable() %>%
+      formatRound(c("norm_peak"), 3) %>% 
+      formatStyle(columns = c("norm_peak"), 'text-align' = 'center')
   )
   
   #download table
@@ -570,7 +593,10 @@ server <- function(input, output, session) {
   })
   
   output$normwide <- renderDataTable(
-    norm_wide_tbl()
+    norm_wide_tbl() %>%
+      datatable() %>%
+      formatRound(c(2:ncol(norm_wide_tbl())), 3) %>% 
+      formatStyle(columns = c(2:ncol(norm_wide_tbl())), 'text-align' = 'center')
   )
   
   #download handler
