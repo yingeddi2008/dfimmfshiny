@@ -432,7 +432,7 @@ server <- function(input, output, session) {
         norm_peak=peak / ITSD) %>%
       filter(!grepl("\\_CC[0-9]",sampleid)) %>%
       left_join(modelstart()) %>%
-      mutate(quant_val =  (norm_peak - (`(Intercept)`))/slope_value*11) %>%
+      mutate(quant_val =  (norm_peak - (`(Intercept)`))/slope_value*as.numeric(input$xfactor)) %>%
       arrange(compound_name) %>%
       mutate(quant_val = ifelse(quant_val < 0,0,quant_val),
              quant_val = round(quant_val,2)) %>%
