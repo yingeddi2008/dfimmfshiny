@@ -123,43 +123,43 @@ readin_meta_csv <- function(directory,na.value=0,recursive=F){
 }
 
 readin_meta_csv_single_file <- function(filename,na.value=0,recursive=F){
-      
+  
   int <- read.csv(file=filename,
-                      stringsAsFactors = F) %>%
-        select(-Sample,-X) %>%
-        filter(!X.1=="Name") %>%
-        dplyr::rename(sampleid=X.1,
-                      Data.File=X.2,
-                      Type=X.3,
-                      Level=X.4,
-                      Acq.Date.Time=X.5) %>%
-        select(-Type,-Level) %>%
-        mutate(filename=filename) %>%
-        reshape2::melt(id.vars=c("sampleid","Data.File",
-                                 "Acq.Date.Time","filename")) %>%
-        mutate(value=suppressWarnings(as.numeric(value))) %>%
-        spread(variable,value,fill=na.value) %>%
-        reshape2::melt(id.vars=c("sampleid","Data.File",
-                                 "Acq.Date.Time","filename")) %>%
-        dplyr::rename(compound=variable,peakarea=value) %>%
-        mutate(conc=ifelse(grepl("\\_[Cc]on",sampleid),"concentrated",
-                           ifelse(grepl("\\_dil",sampleid),"diluted",
-                                  "other")),
-               compound=as.character(compound),
-               itsd=str_extract(compound,pattern="ITSD"),
-               status=str_extract(compound,pattern="\\_.+"),
-               status=gsub("\\.Results","",status),
-               status=gsub("\\_ITSD","",status),
-               status=gsub("^\\_","",status),
-               compound_name=gsub("\\_ITSD.+|\\.[Rr]esults","",compound)) %>%
-        replace_na(list(status="")) %>%
-        select(sampleid,Data.File,Acq.Date.Time,compound,
-               compound_name,conc,itsd,peakarea,status,filename) %>%
+                  stringsAsFactors = F) %>%
+    select(-Sample,-X) %>%
+    filter(!X.1=="Name") %>%
+    dplyr::rename(sampleid=X.1,
+                  Data.File=X.2,
+                  Type=X.3,
+                  Level=X.4,
+                  Acq.Date.Time=X.5) %>%
+    select(-Type,-Level) %>%
+    mutate(filename=filename) %>%
+    reshape2::melt(id.vars=c("sampleid","Data.File",
+                             "Acq.Date.Time","filename")) %>%
+    mutate(value=suppressWarnings(as.numeric(value))) %>%
+    spread(variable,value,fill=na.value) %>%
+    reshape2::melt(id.vars=c("sampleid","Data.File",
+                             "Acq.Date.Time","filename")) %>%
+    dplyr::rename(compound=variable,peakarea=value) %>%
+    mutate(conc=ifelse(grepl("\\_[Cc]on",sampleid),"concentrated",
+                       ifelse(grepl("\\_dil",sampleid),"diluted",
+                              "other")),
+           compound=as.character(compound),
+           itsd=str_extract(compound,pattern="ITSD"),
+           status=str_extract(compound,pattern="\\_.+"),
+           status=gsub("\\.Results","",status),
+           status=gsub("\\_ITSD","",status),
+           status=gsub("^\\_","",status),
+           compound_name=gsub("\\_ITSD.+|\\.[Rr]esults","",compound)) %>%
+    replace_na(list(status="")) %>%
+    select(sampleid,Data.File,Acq.Date.Time,compound,
+           compound_name,conc,itsd,peakarea,status,filename) %>%
     mutate(peakarea=as.numeric(peakarea),
            peakarea=ifelse(peakarea < na.value,na.value,peakarea))
-      
-      meta <- int
-    return(meta)
+  
+  meta <- int
+  return(meta)
 }
 
 make_norm_conc_tbl <- function(df,
@@ -201,34 +201,35 @@ ui <- fluidPage(
   titlePanel("DFI Metabolomics QC (v1.5)"),
   br(),
   
-# CSV file selector -------------------------------------------------------
-
+  # CSV file selector -------------------------------------------------------
+  
   fluidRow(column(width = 4,
-    wellPanel(
-      actionButton("refresh_csv", "Refresh CSV files"),
-      selectInput("filename", "Select a CSV file from: ", list.files(wddir, pattern="csv$"))
-      )
-    )
+                  wellPanel(
+                    actionButton("refresh_csv", "Refresh CSV files"),
+                    selectInput("filename", "Select a CSV file from: ", list.files(wddir, pattern="csv$"))
+                  )
+  )
   ),
-
-# tabs --------------------------------------------------------------------
-
+  
+  # tabs --------------------------------------------------------------------
+  
   tabsetPanel(type="tabs",
               # quant QC UI -------------------------------------------------------------
               tabPanel("Quant QC", theme = shinytheme("flatly"),
                        sidebarLayout(
                          sidebarPanel(width = 3,
                                       textInput("compounds","Enter ITSD compounds (comma separated):",
-                                                value="Acetate,Propionate,Butyrate"),
+                                                value="Acetate,Propionate,Butyrate,Succinate"),
                                       br(),
                                       h4("ITSD dilution calculation"),
                                       numericInput("xfactor","Mult factor:",value = 11),
-                                      numericInput("start","Enter concentration(s):",value = 100),
+                                      #numericInput("start","Enter concentration(s):",value = 100),
+                                      textInput("start","Enter concentration(s):","100"),
                                       numericInput("series","dilution #",8),
                                       br(),
                                       h4("Filters:"),
-                                      textInput("maxcc","Max conc(s) filter:","100,100,100"),
-                                      textInput("mincc","Min conc(s) filter:","0,0,0"),
+                                      textInput("maxcc","Max conc(s) filter:","100,100,100,100"),
+                                      textInput("mincc","Min conc(s) filter:","0,0,0,0"),
                          ),
                          mainPanel(
                            plotOutput("quant"),
@@ -249,7 +250,7 @@ ui <- fluidPage(
                                       br(),
                                       h4("Type in ITSD"),
                                       textInput("dil_compounds","diluted standards:", value="Valine_D8,Valerate"),
-                                      textInput("conc_compounds","concentrated standards:",value="Succinate,Proline,Phenol"),
+                                      textInput("conc_compounds","concentrated standards:",value="Proline_D7,Phenol"),
                                       br(),
                                       numericInput("zero_val","minimum value:",value=5000)
                          ),
@@ -271,7 +272,7 @@ ui <- fluidPage(
               
               tabPanel("More",fluidPage(theme = shinytheme("flatly")),
                        h3("In construction for some awesome stuff!")
-                       )
+              )
               
   )
   
@@ -280,7 +281,7 @@ ui <- fluidPage(
 # server ------------------------------------------------------------------
 
 server <- function(input, output, session) {
-
+  
   
   # refresh CSV list when hit button
   observeEvent(input$refresh_csv,ignoreInit = T,ignoreNULL = T, {
@@ -289,7 +290,7 @@ server <- function(input, output, session) {
   })
   
   
-# quant qc tab ------------------------------------------------------------
+  # quant qc tab ------------------------------------------------------------
   
   #make concentration table
   conc_tbl <- reactive({
@@ -336,8 +337,8 @@ server <- function(input, output, session) {
       reshape2::dcast(sampleid+compound_name+conc ~ itsd,value.var="peakarea") %>%
       mutate(#peak = ifelse(peak <= 10000,0,peak),
         norm_peak=peak / ITSD) %>%
-      mutate(curveLab=str_extract(sampleid,"\\_CC[1-9]+\\_|\\_CC[1-9][0-9]+\\_"),
-          curveLab=gsub("\\_","",curveLab)) %>%
+      mutate(curveLab=str_extract(sampleid,"\\_CC[1-9][0-9]+\\_|\\_CC[1-9]+\\_"),
+             curveLab=gsub("\\_","",curveLab)) %>%
       left_join(conc_tbl()) %>%
       left_join(cutoff_df()) %>%
       filter(conc_val <= maxcc,
@@ -360,7 +361,7 @@ server <- function(input, output, session) {
   
   #make quant graph
   quant_plot <- reactive({
-
+    
     compounds = unlist(strsplit(input$compounds, split=","))
     compounds = factor(compounds,level=unique(compounds))
     
@@ -373,8 +374,8 @@ server <- function(input, output, session) {
       mutate(#peak = ifelse(peak <= 10000,0,peak),
         norm_peak=peak / ITSD) %>%
       filter(grepl("\\_CC[0-9]",sampleid)) %>%
-       mutate(curveLab=str_extract(sampleid,"\\_CC[1-9]+\\_|\\_CC[1-9][0-9]+\\_"),
-          curveLab=gsub("\\_","",curveLab)) %>%
+      mutate(curveLab=str_extract(sampleid,"\\_CC[1-9][0-9]+\\_|\\_CC[1-9]+\\_"),
+             curveLab=gsub("\\_","",curveLab)) %>%
       left_join(conc_tbl()) %>%
       left_join(cutoff_df()) %>%
       filter(conc_val <= maxcc,
@@ -403,7 +404,7 @@ server <- function(input, output, session) {
       replace_na(list(itsd="peak")) %>%
       reshape2::dcast(sampleid+compound_name+conc ~ itsd,value.var="peakarea") %>%
       mutate(#peak = ifelse(peak <= 10000,0,peak),
-             norm_peak=peak / ITSD) %>%
+        norm_peak=peak / ITSD) %>%
       filter(!grepl("\\_CC[0-9]",sampleid)) %>%
       left_join(modelstart()) %>%
       mutate(quant_val =  (norm_peak - (`(Intercept)`))/slope_value*as.numeric(input$xfactor)) %>%
@@ -455,15 +456,15 @@ server <- function(input, output, session) {
     }
   )
   
-
-# normalization tab -------------------------------------------------------
+  
+  # normalization tab -------------------------------------------------------
   
   rawdf <- reactive({ 
     readin_meta_csv_single_file(file.path(wddir,input$filename),na.value = input$zero_val) 
   })
   
   csv <- reactive({
-
+    
     vars <- rawdf() %>%
       mutate(compound_name=as.character(compound_name)) %>%
       arrange(desc(compound_name)) %>%
@@ -493,7 +494,7 @@ server <- function(input, output, session) {
   
   #make boxplots:
   raw_boxplots <- reactive({
-  
+    
     rawdf() %>%
       filter(is.na(itsd)) %>%
       replace_na(list(itsd="not itsd")) %>%
@@ -521,7 +522,7 @@ server <- function(input, output, session) {
     # cat(input$check_compounds)
     # print(length(input$check_compounds))
     # print(length(as.list(input$check_compounds)))
-          
+    
     if(length(as.list(input$check_compounds)) > 0){
       # print("if")
       
@@ -531,7 +532,7 @@ server <- function(input, output, session) {
              compound_name = input$check_compounds) %>%
         bind_rows(tibble(checked = rep("concentrated", length(leftovervars)),
                          compound_name = leftovervars)
-                  )
+        )
     }else{
       
       # print("else")
@@ -567,7 +568,7 @@ server <- function(input, output, session) {
   #download table
   #make wide table 
   norm_wide_tbl <- reactive({
-     
+    
     rawdf() %>%
       left_join(conc_filter()) %>%
       # replace_na(list(checked="concentrated")) %>%
@@ -590,7 +591,7 @@ server <- function(input, output, session) {
       dplyr::select(sampleid, compound_name, norm_peak) %>%
       mutate(norm_peak = round(norm_peak,5)) %>%
       reshape2::dcast(sampleid ~ compound_name,value.var="norm_peak",fun.aggregate=mean)
-  
+    
   })
   
   output$normwide <- renderDataTable(
