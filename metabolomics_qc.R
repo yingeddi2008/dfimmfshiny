@@ -1114,5 +1114,5 @@ server <- function(input, output, session) {
 
 # run app -----------------------------------------------------------------
 
-shinyApp(ui, server)
-#runApp(list(ui=ui,server=server),host="0.0.0.0",port=5000)
+#shinyApp(ui, server)
+runApp(list(ui=ui,server=server),host="0.0.0.0",port=5000)
