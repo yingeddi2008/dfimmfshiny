@@ -190,9 +190,9 @@ make_norm_conc_tbl <- function(df,
 
 get_indole_conc <- function(conc,compounds,series=11){
   #compounds <- inputcompounds2
-  
-  #series <- 11
-  #conc <- "909,454.5,227.25,113.625,56.8125,5.68125,0.568125,0.056813,0.014203,0.003551,0.000888"
+  compounds <- "niacin,tyrosine,phenylalanine,kynurenine,Serotonin,anthranilicacid,tryptophan,5HIAA,tryptamine,kynurenicacid,melatonin"
+  series <- 11
+  conc <- "909,454.5,227.25,113.625,56.8125,5.68125,0.568125,0.056813,0.014203,0.003551,0.000888"
   
   compounds = unlist(strsplit(compounds, split=","))
   conc = unlist(strsplit(conc,split = ","))
@@ -208,8 +208,9 @@ get_indole_conc <- function(conc,compounds,series=11){
     curve <- paste0("cc",i)
     dflist[[i]] <- curve
   }
+  #class(dflist)
   
-  curves <- do.call(rbind,dflist) %>%
+  curves <- do.call(rbind,as.list(dflist)) %>%
     as.data.frame() %>%
     mutate(rownum=row_number()) %>%
     arrange(-rownum) %>%
@@ -218,14 +219,15 @@ get_indole_conc <- function(conc,compounds,series=11){
   curves <- cbind(curves,"conc_val"=conc)
   colnames(curves)[1] <- "curveLab"  
   
+  
   dflist <- NULL
   for(i in 1:length(compounds)){
     #i=1
     int <- cbind("compound_name"=rep(compounds[i],series),curves)
     dflist[[i]] <- int
   }
-  indole_conc <- do.call(rbind,dflist) %>%
-    mutate(conc_val=as.numeric(conc_val))
+  indole_conc <- do.call(rbind,as.list(dflist)) %>%
+    mutate(conc_val=as.numeric(as.character(conc_val)))
   return(indole_conc)
 }
 
