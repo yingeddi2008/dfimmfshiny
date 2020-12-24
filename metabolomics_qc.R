@@ -353,7 +353,7 @@ ui <- fluidPage(
                                       numericInput("zero_val2","minimum value:",value=5000)
                          ),
                          mainPanel(
-                           splitLayout(cellWidths = c("25%","75%"),
+                           splitLayout(#cellWidths = c("25%","75%"),
                                       # uiOutput("compound_list2"),
                                        plotOutput("raw_boxplots2",height="500px")),
                            h4("Intermediate table:"),
