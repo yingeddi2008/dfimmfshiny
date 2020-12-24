@@ -340,14 +340,14 @@ ui <- fluidPage(
                        )
               ),
               
-              # Indone normalization UI --------------------------------------------------------
+              # Indole normalization UI --------------------------------------------------------
               
               tabPanel("Indole Normalization",fluidPage(theme = shinytheme("flatly")),
                        sidebarLayout(
                          sidebarPanel(width = 3,
                                       br(),
                                       h4("Type in ITSD"),
-                                      textInput("itsd_compounds","standards:", value="Valine_D8,Valerate"),
+                                      textInput("itsd_compounds","standards:", value="Serotonin,melatonin"),
                                       #textInput("conc_compounds","concentrated standards:",value="Proline_D7,Phenol"),
                                       br(),
                                       numericInput("zero_val2","minimum value:",value=5000)
@@ -357,6 +357,7 @@ ui <- fluidPage(
                                        uiOutput("compound_list2"),
                                        plotOutput("raw_boxplots2",height="1400px")),
                            h4("Intermediate table:"),
+                           #dataTableOutput("conc_int2"),
                            dataTableOutput("conc_filter2"),
                            h4("Normalized table:"),
                            dataTableOutput("normwide2"),
@@ -944,22 +945,22 @@ server <- function(input, output, session) {
     return(vars)
   })
   
-  output$compound_list2 <- renderUI({
-    checkboxGroupInput("check_compounds","Check = diluted",
-                       choices=csv(),
-                       inline=F)
-  })
+  # output$compound_list2 <- renderUI({
+  #   checkboxGroupInput("check_compounds","Check = diluted",
+  #                      choices=csv(),
+  #                      inline=F)
+  # })
   
   conc_int2 <- reactive({
-    
-    make_norm_conc_tbl(rawdf(),
-                       dil_compounds = as.character(input$itsd_compounds))
-                       #conc_compounds = as.character(input$conc_compounds))
-  })
+   
+     make_norm_conc_tbl(rawdf(),
+                        conc_compounds = as.character(input$itsd_compounds))
+                        #conc_compounds = as.character(input$conc_compounds))
+   })
   
-  # output$conc_int <- renderDataTable(
-  #   conc_int()
-  # )
+   output$conc_int2 <- renderDataTable(
+     conc_int2()
+   )
   
   #make boxplots:
   raw_boxplots2 <- reactive({
@@ -985,32 +986,32 @@ server <- function(input, output, session) {
   )
   
   #subset based on checkboxes.. make a dataframe of compounds in same order as checkboxes with input as a column
-  conc_filter2 <- reactive({
-    # print(input$check_compounds)
-    # print(class(input$check_compounds))
-    # cat(input$check_compounds)
-    # print(length(input$check_compounds))
-    # print(length(as.list(input$check_compounds)))
-    
-    if(length(as.list(input$check_compounds2)) > 0){
-      # print("if")
-      
-      leftovervars <- csv()[ !(csv() %in% input$check_compounds2) ]
-      
-      tibble(checked = rep("diluted", length(input$check_compounds2)),
-             compound_name = input$check_compounds2) %>%
-        bind_rows(tibble(checked = rep("concentrated", length(leftovervars)),
-                         compound_name = leftovervars)
-        )
-    }else{
-      
-      # print("else")
-      tibble(checked = "concentrated",
-             compound_name = csv()) 
-    }
-  })
-  
-  
+  # conc_filter2 <- reactive({
+  #   # print(input$check_compounds)
+  #   # print(class(input$check_compounds))
+  #   # cat(input$check_compounds)
+  #   # print(length(input$check_compounds))
+  #   # print(length(as.list(input$check_compounds)))
+  #   
+  #   if(length(as.list(input$check_compounds2)) > 0){
+  #     # print("if")
+  #     
+  #     leftovervars <- csv()[ !(csv() %in% input$check_compounds2) ]
+  #     
+  #     tibble(checked = rep("diluted", length(input$check_compounds2)),
+  #            compound_name = input$check_compounds2) %>%
+  #       bind_rows(tibble(checked = rep("concentrated", length(leftovervars)),
+  #                        compound_name = leftovervars)
+  #       )
+  #   }else{
+  #     
+  #     # print("else")
+  #     tibble(checked = "concentrated",
+  #            compound_name = csv()) 
+  #   }
+  # })
+  # 
+  # 
   
   subset_conc2 <- reactive({
     rawdf()
@@ -1019,10 +1020,7 @@ server <- function(input, output, session) {
     #print(conc_int())
     
     rawdf() %>%
-      left_join(conc_filter2()) %>%
-      # replace_na(list(checked="concentrated")) %>%
-      filter(conc==checked) %>%
-      select(-checked) %>%
+      select(-conc) %>%
       left_join(conc_int2()) %>%
       mutate(norm_peak=peakarea / avg)
   })
@@ -1038,56 +1036,48 @@ server <- function(input, output, session) {
   #make wide table 
   norm_wide_tbl2 <- reactive({
     
-    if(input$qcfil==F){
+    if(input$qcfil2==F){
+     
       rawdf() %>%
-        left_join(conc_filter2()) %>%
-        # replace_na(list(checked="concentrated")) %>%
-        filter(conc==checked, is.na(itsd),
-               !grepl("CC[0-9]+", sampleid)) %>%
-        #select(-checked) %>%
+        filter(#conc==checked,
+               is.na(itsd),
+               !grepl("[Cc][Cc][0-9]+", Data.File)) %>%
         left_join(conc_int2()) %>%
         mutate(norm_peak=peakarea / avg) %>%
-        dplyr::select(sampleid, compound_name, norm_peak) %>%
+        dplyr::select(Data.File, compound_name, norm_peak) %>%
         spread(compound_name, norm_peak, fill = NA) %>%
-        reshape2::melt(id.vars=c("sampleid")) %>%
+        reshape2::melt(id.vars=c("Data.File")) %>%
         dplyr::rename(compound_name=variable,norm_peak=value) %>%
-        separate(sampleid,into=c("num","date","batch","sampleid","conc"),
+        separate(Data.File,into=c("num","date","batch","sampleid","conc"),
                  sep="\\_\\_") %>%
-        filter(!is.na(norm_peak)) %>%
-        # filter(sampleid %!in% c("MB_1","MB_2",
-        #                        "PooledQC",
-        #                        "BHIQC_1",
-        #                        "BHIQC_2")) %>%
         dplyr::select(num,sampleid, compound_name, norm_peak) %>%
-        mutate(norm_peak = round(norm_peak,5)) %>%
+        mutate(norm_peak = round(norm_peak,5),
+               compound_name=gsub("\\_[0-9]+","",compound_name)) %>%
         reshape2::dcast(num+sampleid ~ compound_name,value.var="norm_peak",fun.aggregate=mean) %>%
         arrange(num) %>%
         select(-num)
     }else{
       rawdf() %>%
-        left_join(conc_filter2()) %>%
-        # replace_na(list(checked="concentrated")) %>%
-        filter(conc==checked, is.na(itsd),
-               !grepl("CC[0-9]+", sampleid)) %>%
-        #select(-checked) %>%
+        filter(#conc==checked,
+          is.na(itsd),
+          !grepl("[Cc][Cc][0-9]+", Data.File)) %>%
         left_join(conc_int2()) %>%
         mutate(norm_peak=peakarea / avg) %>%
-        dplyr::select(sampleid, compound_name, norm_peak) %>%
+        dplyr::select(Data.File, compound_name, norm_peak) %>%
         spread(compound_name, norm_peak, fill = NA) %>%
-        reshape2::melt(id.vars=c("sampleid")) %>%
+        reshape2::melt(id.vars=c("Data.File")) %>%
         dplyr::rename(compound_name=variable,norm_peak=value) %>%
-        separate(sampleid,into=c("num","date","batch","sampleid","conc"),
+        separate(Data.File,into=c("num","date","batch","sampleid","conc"),
                  sep="\\_\\_") %>%
-        filter(!is.na(norm_peak)) %>%
-        filter(sampleid %!in% c("MB_1","MB_2",
-                                "PooledQC",
-                                "BHIQC_1",
-                                "BHIQC_2")) %>%
         dplyr::select(num,sampleid, compound_name, norm_peak) %>%
-        mutate(norm_peak = round(norm_peak,5)) %>%
+        mutate(norm_peak = round(norm_peak,5),
+               compound_name=gsub("\\_[0-9]+","",compound_name)) %>%
         reshape2::dcast(num+sampleid ~ compound_name,value.var="norm_peak",fun.aggregate=mean) %>%
         arrange(num) %>%
-        select(-num)
+        select(-num) %>%
+        filter(sampleid %!in% c("MB_1","MB_2",
+                                "BHIQC_1","BHI_QC_2",
+                                "PooledQC","PooledQC2"))
     }
   })
   
@@ -1095,7 +1085,7 @@ server <- function(input, output, session) {
     norm_wide_tbl2() %>%
       datatable() %>%
       formatRound(c(2:ncol(norm_wide_tbl2())), 3) %>% 
-      formatStyle(columns = c(2:ncol(norm_wide_tbl())), 'text-align' = 'center')
+      formatStyle(columns = c(2:ncol(norm_wide_tbl2())), 'text-align' = 'center')
   )
   
   #download handler
