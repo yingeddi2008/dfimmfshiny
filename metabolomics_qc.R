@@ -354,8 +354,8 @@ ui <- fluidPage(
                          ),
                          mainPanel(
                            splitLayout(cellWidths = c("25%","75%"),
-                                       uiOutput("compound_list2"),
-                                       plotOutput("raw_boxplots2",height="1400px")),
+                                      # uiOutput("compound_list2"),
+                                       plotOutput("raw_boxplots2",height="500px")),
                            h4("Intermediate table:"),
                            #dataTableOutput("conc_int2"),
                            dataTableOutput("conc_filter2"),
@@ -930,7 +930,7 @@ server <- function(input, output, session) {
   # normalization tab -------------------------------------------------------
   
   rawdf <- reactive({ 
-    readin_meta_csv_single_file(file.path(wddir,input$filename),na.value = input$zero_val) 
+    readin_meta_csv_single_file(file.path(wddir,input$filename),na.value = input$zero_val2) 
   })
   
   csv <- reactive({
@@ -1039,6 +1039,7 @@ server <- function(input, output, session) {
     if(input$qcfil2==F){
      
       rawdf() %>%
+        mutate(Data.File=as.character(Data.File)) %>%
         filter(#conc==checked,
                is.na(itsd),
                !grepl("[Cc][Cc][0-9]+", Data.File)) %>%
@@ -1046,6 +1047,7 @@ server <- function(input, output, session) {
         mutate(norm_peak=peakarea / avg) %>%
         dplyr::select(Data.File, compound_name, norm_peak) %>%
         spread(compound_name, norm_peak, fill = NA) %>%
+        #reshape2::dcast(Data.File ~ compound_name,value.var="norm_peak",fill=NA) %>%
         reshape2::melt(id.vars=c("Data.File")) %>%
         dplyr::rename(compound_name=variable,norm_peak=value) %>%
         separate(Data.File,into=c("num","date","batch","sampleid","conc"),
@@ -1056,8 +1058,10 @@ server <- function(input, output, session) {
         reshape2::dcast(num+sampleid ~ compound_name,value.var="norm_peak",fun.aggregate=mean) %>%
         arrange(num) %>%
         select(-num)
+      
     }else{
       rawdf() %>%
+        mutate(Data.File=as.character(Data.File)) %>%
         filter(#conc==checked,
           is.na(itsd),
           !grepl("[Cc][Cc][0-9]+", Data.File)) %>%
