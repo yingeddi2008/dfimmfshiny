@@ -156,7 +156,9 @@ readin_meta_csv_single_file <- function(filename,na.value=0,recursive=F){
     select(sampleid,Data.File,Acq.Date.Time,compound,
            compound_name,conc,itsd,peakarea,status,filename) %>%
     mutate(peakarea=as.numeric(peakarea),
-           peakarea=ifelse(peakarea < na.value,na.value,peakarea))
+           peakarea=ifelse(peakarea < na.value,na.value,peakarea),
+           compound_name=ifelse(grepl("[0-9]",compound_name),
+                                gsub("^X","",compound_name),compound_name))
   
   meta <- int
   return(meta)
@@ -311,13 +313,13 @@ ui <- fluidPage(
                          )
                        )
               ),
-
-            # indole quant ------------------------------------------------------------
+              
+              # indole quant ------------------------------------------------------------
               tabPanel("Indole Quant QC", theme = shinytheme("flatly"),
                        sidebarLayout(
                          sidebarPanel(width = 3,
                                       textAreaInput("compounds2","Enter ITSD compounds (comma separated):",
-                                                value="5HIAA,anthranilicacid,kynurenicacid,kynurenine,melatonin,niacin,phenylalanine,Serotonin,tryptamine,tryptophan,tyrosine"),
+                                                    value="5HIAA,anthranilicacid,kynurenicacid,kynurenine,melatonin,niacin,phenylalanine,Serotonin,tryptamine,tryptophan,tyrosine"),
                                       br(),
                                       h4("ITSD dilution calculation"),
                                       #numericInput("xfactor2","Mult factor:",value = 11),
@@ -356,8 +358,8 @@ ui <- fluidPage(
                          ),
                          mainPanel(
                            splitLayout(#cellWidths = c("25%","75%"),
-                                      # uiOutput("compound_list2"),
-                                       plotOutput("raw_boxplots2",height="500px")),
+                             # uiOutput("compound_list2"),
+                             plotOutput("raw_boxplots2",height="500px")),
                            h4("Intermediate table:"),
                            #dataTableOutput("conc_int2"),
                            dataTableOutput("conc_filter2"),
@@ -368,7 +370,7 @@ ui <- fluidPage(
                          )
                        )
               ),
-
+              
               
               # more --------------------------------------------------------------------
               
@@ -545,7 +547,7 @@ server <- function(input, output, session) {
                sep="\\_\\_") %>%
       arrange(num) %>%
       select(-num,-date,-batch,-conc)
-      
+    
   })
   
   #download handler
@@ -677,30 +679,30 @@ server <- function(input, output, session) {
   norm_wide_tbl <- reactive({
     
     if(input$qcfil==F){
-    rawdf() %>%
-      left_join(conc_filter()) %>%
-      # replace_na(list(checked="concentrated")) %>%
-      filter(conc==checked, is.na(itsd),
-             !grepl("CC[0-9]+", sampleid)) %>%
-      #select(-checked) %>%
-      left_join(conc_int()) %>%
-      mutate(norm_peak=peakarea / avg) %>%
-      dplyr::select(sampleid, compound_name, norm_peak) %>%
-      spread(compound_name, norm_peak, fill = NA) %>%
-      reshape2::melt(id.vars=c("sampleid")) %>%
-      dplyr::rename(compound_name=variable,norm_peak=value) %>%
-      separate(sampleid,into=c("num","date","batch","sampleid","conc"),
-               sep="\\_\\_") %>%
-      filter(!is.na(norm_peak)) %>%
-      # filter(sampleid %!in% c("MB_1","MB_2",
-      #                        "PooledQC",
-      #                        "BHIQC_1",
-      #                        "BHIQC_2")) %>%
-      dplyr::select(num,sampleid, compound_name, norm_peak) %>%
-      mutate(norm_peak = round(norm_peak,5)) %>%
-      reshape2::dcast(num+sampleid ~ compound_name,value.var="norm_peak",fun.aggregate=mean) %>%
-      arrange(num) %>%
-      select(-num)
+      rawdf() %>%
+        left_join(conc_filter()) %>%
+        # replace_na(list(checked="concentrated")) %>%
+        filter(conc==checked, is.na(itsd),
+               !grepl("CC[0-9]+", sampleid)) %>%
+        #select(-checked) %>%
+        left_join(conc_int()) %>%
+        mutate(norm_peak=peakarea / avg) %>%
+        dplyr::select(sampleid, compound_name, norm_peak) %>%
+        spread(compound_name, norm_peak, fill = NA) %>%
+        reshape2::melt(id.vars=c("sampleid")) %>%
+        dplyr::rename(compound_name=variable,norm_peak=value) %>%
+        separate(sampleid,into=c("num","date","batch","sampleid","conc"),
+                 sep="\\_\\_") %>%
+        filter(!is.na(norm_peak)) %>%
+        # filter(sampleid %!in% c("MB_1","MB_2",
+        #                        "PooledQC",
+        #                        "BHIQC_1",
+        #                        "BHIQC_2")) %>%
+        dplyr::select(num,sampleid, compound_name, norm_peak) %>%
+        mutate(norm_peak = round(norm_peak,5)) %>%
+        reshape2::dcast(num+sampleid ~ compound_name,value.var="norm_peak",fun.aggregate=mean) %>%
+        arrange(num) %>%
+        select(-num)
     }else{
       rawdf() %>%
         left_join(conc_filter()) %>%
@@ -718,9 +720,9 @@ server <- function(input, output, session) {
                  sep="\\_\\_") %>%
         filter(!is.na(norm_peak)) %>%
         filter(sampleid %!in% c("MB_1","MB_2",
-                               "PooledQC",
-                               "BHIQC_1",
-                               "BHIQC_2")) %>%
+                                "PooledQC",
+                                "BHIQC_1",
+                                "BHIQC_2")) %>%
         dplyr::select(num,sampleid, compound_name, norm_peak) %>%
         mutate(norm_peak = round(norm_peak,5)) %>%
         reshape2::dcast(num+sampleid ~ compound_name,value.var="norm_peak",fun.aggregate=mean) %>%
@@ -749,9 +751,9 @@ server <- function(input, output, session) {
     }
   )
   
-
-# indole quant ------------------------------------------------------------
-
+  
+  # indole quant ------------------------------------------------------------
+  
   
   #make concentration table
   conc_tbl2 <- reactive({
@@ -899,8 +901,8 @@ server <- function(input, output, session) {
       arrange(compound_name) %>%
       mutate(quant_val = ifelse(quant_val < 0,0,quant_val),
              quant_val = round(quant_val,2))
-  
-
+    
+    
   })
   
   output$quant_tbl2 <- renderDataTable(
@@ -978,15 +980,15 @@ server <- function(input, output, session) {
   # })
   
   conc_int2 <- reactive({
-   
-     make_norm_conc_tbl(rawdf(),
-                        conc_compounds = as.character(input$itsd_compounds))
-                        #conc_compounds = as.character(input$conc_compounds))
-   })
+    
+    make_norm_conc_tbl(rawdf(),
+                       conc_compounds = as.character(input$itsd_compounds))
+    #conc_compounds = as.character(input$conc_compounds))
+  })
   
-   output$conc_int2 <- renderDataTable(
-     conc_int2()
-   )
+  output$conc_int2 <- renderDataTable(
+    conc_int2()
+  )
   
   #make boxplots:
   raw_boxplots2 <- reactive({
@@ -1063,12 +1065,12 @@ server <- function(input, output, session) {
   norm_wide_tbl2 <- reactive({
     
     if(input$qcfil2==F){
-     
+      
       rawdf() %>%
         mutate(Data.File=as.character(Data.File)) %>%
         filter(#conc==checked,
-               is.na(itsd),
-               !grepl("[Cc][Cc][0-9]+", Data.File)) %>%
+          is.na(itsd),
+          !grepl("[Cc][Cc][0-9]+", Data.File)) %>%
         left_join(conc_int2()) %>%
         mutate(norm_peak=peakarea / avg) %>%
         dplyr::select(Data.File, compound_name, norm_peak) %>%
