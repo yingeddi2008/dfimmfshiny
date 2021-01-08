@@ -316,21 +316,23 @@ ui <- fluidPage(
               tabPanel("Indole Quant QC", theme = shinytheme("flatly"),
                        sidebarLayout(
                          sidebarPanel(width = 3,
-                                      textInput("compounds2","Enter ITSD compounds (comma separated):",
-                                                value="niacin,tyrosine,phenylalanine,kynurenine,Serotonin,anthranilicacid,tryptophan,5HIAA,tryptamine,kynurenicacid,melatonin"),
+                                      textAreaInput("compounds2","Enter ITSD compounds (comma separated):",
+                                                value="5HIAA,anthranilicacid,kynurenicacid,kynurenine,melatonin,niacin,phenylalanine,Serotonin,tryptamine,tryptophan,tyrosine"),
                                       br(),
                                       h4("ITSD dilution calculation"),
                                       #numericInput("xfactor2","Mult factor:",value = 11),
                                       #numericInput("start","Enter concentration(s):",value = 100),
-                                      textInput("start2","Enter concentration(s):","909,454.5,227.25,113.625,56.8125,5.68125,0.568125,0.056813,0.014203,0.003551,0.000888"),
+                                      textAreaInput("start2","Enter concentration(s):","909,454.5,227.25,113.625,56.8125,5.68125,0.568125,0.056813,0.014203,0.003551,0.000888"),
                                       numericInput("series2","dilution #",11),
                                       br(),
                                       h4("Filters:"),
-                                      textInput("maxcc2","Max conc(s) filter:","909"),
-                                      textInput("mincc2","Min conc(s) filter:","0"),
+                                      textAreaInput("maxcc2","Max conc(s) filter:","909,909,909,909,909,909,909,909,909,909,909"),
+                                      textInput("mincc2","Min conc(s) filter:","0,0,0,0,0,0,0,0,0,0,0"),
                          ),
                          mainPanel(
                            plotOutput("quant2"),
+                           checkboxInput("sety","set y?",value = 0),
+                           numericInput("yint","Y intercept:",value=0),
                            h4("Fitted linear model stats:"),
                            dataTableOutput("model2"),
                            h4("Standardized table:"),
@@ -787,13 +789,13 @@ server <- function(input, output, session) {
   modelstart2 <- reactive({
     
     compounds2 = unlist(strsplit(input$compounds2, split=","))
-    compounds2 = factor(compounds2,level=unique(compounds2))
+    compounds2 = factor(compounds2,levels=compounds2)
     
-      
+    if(input$sety==0){  
       meta() %>%
         mutate(compound_name=gsub("\\_[0-9]+$","",compound_name)) %>%
         filter(compound_name %in% compounds2) %>%
-        mutate(compound_name=factor(compound_name,levels=unique(compounds2))) %>%
+        mutate(compound_name=factor(compound_name,levels=compounds2)) %>%
         replace_na(list(itsd="peak")) %>%
         reshape2::dcast(Data.File+compound_name+conc ~ itsd,value.var="peakarea") %>%
         mutate(#peak = ifelse(peak <= 10000,0,peak),
@@ -810,6 +812,30 @@ server <- function(input, output, session) {
                   model_list <- broom::tidy(lm(norm_peak ~ conc_val))) %>%
         reshape2::dcast(compound_name+r ~ term,value.var="estimate") %>%
         dplyr::rename(slope_value=conc_val) 
+    }else{
+      meta() %>%
+        mutate(compound_name=gsub("\\_[0-9]+$","",compound_name)) %>%
+        filter(compound_name %in% compounds2) %>%
+        mutate(compound_name=factor(compound_name,levels=compounds2)) %>%
+        replace_na(list(itsd="peak")) %>%
+        reshape2::dcast(Data.File+compound_name+conc ~ itsd,value.var="peakarea") %>%
+        mutate(#peak = ifelse(peak <= 10000,0,peak),
+          norm_peak=peak / ITSD) %>%
+        filter(grepl("\\_[Cc][Cc][1-9][0-9]+\\_|\\_[Cc][Cc][1-9]+\\_", Data.File)) %>%
+        mutate(curveLab=str_extract(Data.File,"\\_[Cc][Cc][1-9][0-9]+\\_|\\_[Cc][Cc][1-9]+\\_"),
+               curveLab=gsub("\\_","",curveLab)) %>%
+        left_join(conc_tbl2()) %>%
+        left_join(cutoff_df2()) %>%
+        filter(conc_val <= maxcc,
+               conc_val >= mincc) %>%
+        group_by(compound_name) %>%
+        summarize(r = cor(norm_peak,conc_val),
+                  model_list <- broom::tidy(lm(as.formula(paste("norm_peak ~ conc_val +",input$yint))))) %>%
+        reshape2::dcast(compound_name+r ~ term,value.var="estimate") %>%
+        dplyr::rename(slope_value=conc_val) %>%
+        mutate(`(Intercept)`= input$yint)
+      
+    }
     
   })
   
@@ -826,12 +852,11 @@ server <- function(input, output, session) {
   quant_plot2 <- reactive({
     
     compounds2 = unlist(strsplit(input$compounds2, split=","))
-    compounds2 = factor(compounds2,level=unique(compounds2))
+    compounds2 = factor(compounds2,levels=compounds2)
     
     meta() %>%
       mutate(compound_name=gsub("\\_[0-9]+$","",compound_name)) %>%
       filter(compound_name %in% compounds2) %>%
-      mutate(compound_name=factor(compound_name,levels=unique(compounds2))) %>%
       replace_na(list(itsd="peak")) %>%
       reshape2::dcast(Data.File+compound_name+conc ~ itsd,value.var="peakarea") %>%
       mutate(#peak = ifelse(peak <= 10000,0,peak),
@@ -843,6 +868,7 @@ server <- function(input, output, session) {
       left_join(cutoff_df2()) %>%
       filter(conc_val <= maxcc,
              conc_val >= mincc) %>%
+      mutate(compound_name=factor(compound_name,levels=compounds2)) %>%
       ggplot(aes(x=conc_val,y=norm_peak)) +
       geom_point(size=3) +
       geom_smooth(method="lm") +
@@ -887,7 +913,7 @@ server <- function(input, output, session) {
   quant_table_dl2 <- reactive({
     
     compounds2 = unlist(strsplit(input$compounds2, split=","))
-    compounds2 = factor(compounds2,level=unique(compounds2))
+    compounds2 = factor(compounds2,levels=compounds2)
     
     meta() %>% 
       mutate(compound_name=gsub("\\_[0-9]+$","",compound_name)) %>%
