@@ -8,7 +8,8 @@ library(broom)
 library(data.table)
 library(yingtools2)
 library(scales)
-#setwd("/Volumes/chaubard-lab/shiny_workspace/csvs/")
+setwd("/Volumes/chaubard-lab/shiny_workspace/csvs/")
+
 # functions ---------------------------------------------------------------
 
 twoFold <- function(startCon, 
@@ -267,6 +268,8 @@ ui <- fluidPage(
                                       textInput("compounds","Enter ITSD compounds (comma separated):",
                                                 value="Acetate,Propionate,Butyrate,Succinate"),
                                       br(),
+                                      textInput("quant_conc","Quant con/dil:",
+                                                value="dil,dil,dil,dil"),
                                       h4("ITSD dilution calculation"),
                                       numericInput("xfactor","Mult factor:",value = 11),
                                       #numericInput("start","Enter concentration(s):",value = 100),
@@ -278,6 +281,7 @@ ui <- fluidPage(
                                       textInput("mincc","Min conc(s) filter:","0,0,0,0"),
                          ),
                          mainPanel(
+                           dataTableOutput("conc"),
                            plotOutput("quant"),
                            h4("Fitted linear model stats:"),
                            dataTableOutput("model"),
@@ -402,8 +406,22 @@ server <- function(input, output, session) {
                  compounds=input$compounds,series=input$series)
   })
   
+  quant_conc_tbl <- reactive({
+    
+    compounds = unlist(strsplit(input$compounds, split=","))
+    concs <- unlist(strsplit(input$quant_conc, split=","))
+    
+    int <- cbind(compounds,concs) %>% as.data.frame()
+    colnames(int) <- c("compound_name","conc")
+    
+    int %>%
+      mutate(conc=ifelse(conc=="dil","diluted","concentrated"))
+    
+  })
+  
+  
   output$conc <- renderDataTable(
-    conc_tbl(),
+    quant_conc_tbl(),
     options = list(pageLength=5)
   )
   
@@ -434,8 +452,8 @@ server <- function(input, output, session) {
     compounds = factor(compounds,level=unique(compounds))
     
     model <- meta() %>%
-      filter(compound_name %in% compounds,
-             conc=="diluted") %>%
+      filter(compound_name %in% compounds) %>%
+      inner_join(quant_conc_tbl()) %>%
       mutate(compound_name=factor(compound_name,levels=compounds)) %>%
       replace_na(list(itsd="peak")) %>%
       reshape2::dcast(sampleid+compound_name+conc ~ itsd,value.var="peakarea") %>%
@@ -451,7 +469,7 @@ server <- function(input, output, session) {
       summarize(r = cor(norm_peak,conc_val),
                 model_list <- broom::tidy(lm(norm_peak ~ conc_val))) %>%
       reshape2::dcast(compound_name+r ~ term,value.var="estimate") %>%
-      dplyr::rename(slope_value=conc_val) 
+      dplyr::rename(slope_value=conc_val)
   })
   
   output$model <- renderDataTable(
@@ -470,8 +488,8 @@ server <- function(input, output, session) {
     compounds = factor(compounds,level=unique(compounds))
     
     meta() %>%
-      filter(compound_name %in% compounds,
-             conc=="diluted") %>%
+      filter(compound_name %in% compounds) %>%
+      inner_join(quant_conc_tbl()) %>%
       mutate(compound_name=factor(compound_name,levels=unique(compounds))) %>%
       replace_na(list(itsd="peak")) %>%
       reshape2::dcast(sampleid+compound_name+conc ~ itsd,value.var="peakarea") %>%
@@ -501,10 +519,9 @@ server <- function(input, output, session) {
     
     compounds = unlist(strsplit(input$compounds, split=","))
     
-    
     meta() %>%
-      filter(compound_name %in% compounds,
-             conc=="diluted") %>%
+      filter(compound_name %in% compounds) %>%
+      #inner_join(quant_conc_tbl()) %>%
       replace_na(list(itsd="peak")) %>%
       reshape2::dcast(sampleid+compound_name+conc ~ itsd,value.var="peakarea") %>%
       mutate(#peak = ifelse(peak <= 10000,0,peak),
@@ -530,8 +547,8 @@ server <- function(input, output, session) {
     #compounds = factor(compounds,level=unique(compounds))
     
     meta() %>%
-      filter(compound_name %in% compounds,
-             conc=="diluted") %>%
+      filter(compound_name %in% compounds) %>%
+      #inner_join(quant_conc_tbl()) %>%
       replace_na(list(itsd="peak")) %>%
       reshape2::dcast(sampleid+compound_name+conc ~ itsd,value.var="peakarea") %>%
       mutate(#peak = ifelse(peak <= 10000,0,peak),
