@@ -37,8 +37,34 @@ twoFold <- function(startCon,
   odf <- tibble(compound, conc, curveLab = paste0(prefix,c(series:1)))
   return(odf)
 }
+anyFold <- function(startCon, 
+                    compound = c("Butyrate", "Propionate","Acetate"), 
+                    series = 8, 
+                    fold=2,
+                    prefix = "CC") {
+  require(assertive.types)
+  require(assertive.base)
+  require(tidyverse)
+  # arg match
+  #compound <- match.arg(compound)
+  # checks
+  assert_is_numeric(startCon)
+  startCon <- use_first(startCon)
+  # body
+  conc <- NULL
+  conc[1] <- cur <- startCon
+  i = 2
+  while( i <= series){ 
+    conc[i] <- cur/fold
+    cur <- conc[i]
+    i <- i + 1
+  }
+  # combine to tibble and return
+  odf <- tibble(compound, conc, curveLab = paste0(prefix,c(series:1)))
+  return(odf)
+}
 
-get_all_conc <- function(compounds,starting_cons,series=8){
+get_all_conc <- function(compounds,starting_cons,series=8,fold=2){
   
   #for testing:
   # compounds=vec
@@ -58,7 +84,7 @@ get_all_conc <- function(compounds,starting_cons,series=8){
   
   dflist <- NULL
   for(i in 1:length(compounds)){
-    int <- twoFold(starting_cons[i],compound=compounds[i],series=series)
+    int <- anyFold(starting_cons[i],compound=compounds[i],series=series,fold=fold)
     dflist[[i]] <- int
   }
   cc <- do.call(rbind,dflist) %>%
@@ -234,7 +260,32 @@ get_indole_conc <- function(conc,compounds,series=11){
   return(indole_conc)
 }
 
-
+readin_bile_csv_single_file <- function(filename,na.value=0,recursive=F){
+  
+  #filename="bile_acid_test.csv"
+  #na.value=0
+  
+  int <- read.csv(file=filename) %>%
+    select(-CAS.ID) %>%
+    reshape2::melt(id.vars=c("Compound.Name","Formula",
+                             "Mass","RT")) %>%
+    replace_na(list(value=na.value)) %>%
+    mutate(letter=str_extract(Compound.Name,"\\_[A-Z]+$"),
+           letter=gsub("\\_","",letter),
+           itsd=str_extract(Compound.Name,pattern="ITSD"),
+           com=gsub("\\_ITSD","",Compound.Name),
+           Data.File=variable) %>%
+    separate(com,into=c("num","compound_name","letter"),sep="\\_") %>%
+    separate(variable,into=c("num2","date_run","batch","sampleid","conc"),sep="\\_\\_") %>%
+    select(Data.File,sampleid,date_run,Compound.Name,compound_name,
+           batch,letter,itsd,conc,peakarea=value) %>%
+    mutate(filename=filename) %>%
+    mutate(compound_name=gsub("D[0-9]+\\-","",compound_name),
+           compound_name=tolower(compound_name),
+           conc=ifelse(grepl("dil",conc),"diluted","concentrated"))
+           
+           return(int)
+}
 
 # set up directory and files ----------------------------------------------
 
@@ -245,7 +296,7 @@ wddir <- "/Volumes/chaubard-lab/shiny_workspace/csvs/"
 
 ui <- fluidPage(
   # shinythemes::themeSelector(),
-  titlePanel("DFI Metabolomics QC (v1.5)"),
+  titlePanel("DFI Metabolomics QC (v1.6)"),
   br(),
   
   # CSV file selector -------------------------------------------------------
@@ -371,6 +422,39 @@ ui <- fluidPage(
                            dataTableOutput("normwide2"),
                            checkboxInput("qcfil2","RemoveQCs"),
                            downloadButton("downloadData4", "Download Normalized Table")
+                         )
+                       )
+              ),
+            
+              # bile acid quant ---------------------------------------------------------
+              tabPanel("Bile Acid Quant QC", theme = shinytheme("flatly"),
+                       sidebarLayout(
+                         sidebarPanel(width = 3,
+                                      textInput("compounds5","Enter ITSD compounds (comma separated):",
+                                                value="Cholic acid,Deoxycholic acid,Glycocholic Acid,Glycodeoxycholic acid,Lithocholic acid,Taurocholic acid,Taurodeoxycholic acid,Alpha-Muricholic Acid"),
+                                      br(),
+                                      textInput("quant_conc5","Quant con/dil:",
+                                                value="dil,dil,dil,dil,dil,dil,dil,dil"),
+                                      h4("ITSD dilution calculation"),
+                                      numericInput("xfactor5","Mult factor:",value = 11),
+                                      #numericInput("start","Enter concentration(s):",value = 100),
+                                      textInput("start5","Enter concentration(s):","125"),
+                                      numericInput("series5","dilution #",10),
+                                      br(),
+                                      h4("Filters:"),
+                                      textInput("maxcc5","Max conc(s) filter:","125,125,125,125,125,125,125,125"),
+                                      textInput("mincc5","Min conc(s) filter:","0,0,0,0,0,0,0,0"),
+                         ),
+                         mainPanel(
+                           dataTableOutput("conc5"),
+                           #dataTableOutput("conc_tbl5"),
+                           #dataTableOutput("cutoff_df5"),
+                           plotOutput("quant5"),
+                           h4("Fitted linear model stats:"),
+                           dataTableOutput("model5"),
+                           h4("Standardized table:"),
+                           dataTableOutput("quant_tbl5"),
+                           downloadButton("downloadData5", "Download Bile Acid Quant Table")
                          )
                        )
               ),
@@ -1146,6 +1230,199 @@ server <- function(input, output, session) {
     
     content = function(file) {
       write.csv(norm_wide_tbl2(),file,
+                row.names=F,quote=F)
+    }
+  )
+  # bile acid quant --------------------------------------------------------
+  #make concentration table
+  conc_tbl5 <- reactive({
+    get_all_conc(input$start5,
+                 compounds=tolower(input$compounds5),series=input$series5,fold=3)
+  })
+  
+  output$conc_tbl5 <- renderDataTable(
+    conc_tbl5(),
+    options=list(pageLength=5)
+  )
+  
+  quant_conc_tbl5 <- reactive({
+    
+    compounds = tolower(unlist(strsplit(input$compounds5, split=",")))
+    concs <- unlist(strsplit(input$quant_conc5, split=","))
+    
+    int <- cbind(compounds,concs) %>% as.data.frame()
+    colnames(int) <- c("compound_name","conc")
+    
+    int %>%
+      mutate(conc=ifelse(conc=="dil","diluted","concentrated"))
+    
+  })
+  
+  
+  output$conc5 <- renderDataTable(
+    quant_conc_tbl5(),
+    options = list(pageLength=5)
+  )
+  
+  #make cutoff reactive
+  cutoff_df5 <- reactive({
+    compounds = tolower(unlist(strsplit(input$compounds5, split=",")))
+    max_cutoffs = unlist(strsplit(input$maxcc5, split = ","))
+    min_cutoffs = unlist(strsplit(input$mincc5, split = ","))
+    
+    cutoff_df <- cbind(compounds,max_cutoffs,min_cutoffs)
+    colnames(cutoff_df) <- c("compound_name","maxcc","mincc")
+    
+    cutoff_df %>%
+      as.data.frame() %>%
+      mutate(maxcc=as.character(maxcc),
+             mincc=as.character(mincc),
+             maxcc=as.numeric(maxcc),
+             mincc=as.numeric(mincc))
+  })
+  
+  output$cutoff_df5 <- renderDataTable(
+    cutoff_df5(),
+    options = list(pageLength=5)
+  )
+  
+  # read in table as reactive 
+  meta5 <- reactive({ readin_bile_csv_single_file(file.path(wddir,input$filename)) })
+  
+  #show models and make plots
+  modelstart5 <- reactive({
+    
+    compounds = tolower(unlist(strsplit(input$compounds5, split=",")))
+    compounds = factor(compounds,level=unique(compounds))
+    
+    model <- meta5() %>%
+      filter(compound_name %in% compounds) %>%
+      inner_join(quant_conc_tbl5()) %>%
+      mutate(compound_name=factor(compound_name,levels=compounds)) %>%
+      replace_na(list(itsd="peak")) %>%
+      reshape2::dcast(sampleid+compound_name+conc ~ itsd,value.var="peakarea",
+                      fun.aggregate=mean) %>%
+      mutate(norm_peak = peak / ITSD) %>%
+     # mutate(#peak = ifelse(peak <= 10000,0,peak),
+    #         norm_peak = peak / ITSD) %>%
+      mutate(curveLab=str_extract(sampleid,pattern="CC[1-9][0-9]+|CC[1-9]+")) %>%
+       inner_join(conc_tbl5()) %>%
+       left_join(cutoff_df5()) %>%
+       filter(conc_val <= maxcc,
+              conc_val >= mincc) %>%
+       group_by(compound_name) %>%
+       summarize(r = cor(norm_peak,conc_val),
+                 model_list <- broom::tidy(lm(norm_peak ~ conc_val))) %>%
+       reshape2::dcast(compound_name+r ~ term,value.var="estimate") %>%
+       dplyr::rename(slope_value=conc_val)
+  })
+  
+  output$model5 <- renderDataTable(
+    modelstart5() %>%
+      datatable() %>%
+      formatRound(c(2:4), 3) %>% 
+      formatStyle(columns = c(2:4), 'text-align' = 'center')
+  )
+  
+  
+  
+  #make quant graph
+  quant_plot5 <- reactive({
+    
+    compounds = tolower(unlist(strsplit(input$compounds5, split=",")))
+    compounds = factor(compounds,level=unique(compounds))
+    
+    meta5() %>%
+      filter(compound_name %in% compounds) %>%
+      inner_join(quant_conc_tbl5()) %>%
+      mutate(compound_name=factor(compound_name,levels=compounds)) %>%
+      replace_na(list(itsd="peak")) %>%
+      reshape2::dcast(sampleid+compound_name+conc ~ itsd,value.var="peakarea",
+                      fun.aggregate=mean) %>%
+      mutate(norm_peak = peak / ITSD) %>%
+      # mutate(#peak = ifelse(peak <= 10000,0,peak),
+      #         norm_peak = peak / ITSD) %>%
+      mutate(curveLab=str_extract(sampleid,pattern="CC[1-9][0-9]+|CC[1-9]+")) %>%
+      inner_join(conc_tbl5()) %>%
+      left_join(cutoff_df5()) %>%
+      filter(conc_val <= maxcc,
+             conc_val >= mincc) %>%
+      ggplot(aes(x=conc_val,y=norm_peak)) +
+      geom_point(size=3) +
+      geom_smooth(method="lm") +
+      theme(strip.text=element_text(size=15),
+            axis.text=element_text(size=13)) +
+      facet_wrap("compound_name",scales="free")
+  })
+  
+  output$quant5 <- renderPlot(
+    quant_plot5()
+  )
+  
+  #make quant table
+  quant_table5 <- reactive({
+    
+    compounds = tolower(unlist(strsplit(input$compounds5, split=",")))
+    
+    meta5() %>%
+      filter(compound_name %in% compounds) %>%
+      inner_join(quant_conc_tbl5()) %>%
+      mutate(compound_name=factor(compound_name,levels=compounds)) %>%
+      replace_na(list(itsd="peak")) %>%
+      reshape2::dcast(sampleid+compound_name+conc ~ itsd,value.var="peakarea",
+                      fun.aggregate=mean) %>%
+      mutate(norm_peak = peak / ITSD) %>%
+      filter(!grepl("^CC[0-9]+",sampleid)) %>%
+      left_join(modelstart5()) %>%
+      mutate(quant_val =  (norm_peak - (`(Intercept)`))/slope_value*as.numeric(input$xfactor)) %>%
+      arrange(compound_name) %>%
+      mutate(quant_val = ifelse(quant_val < 0,0,quant_val),
+             quant_val = round(quant_val,2))
+  })
+  
+  output$quant_tbl5 <- renderDataTable(
+    quant_table5() %>%
+      datatable() %>%
+      formatRound(c(4:ncol(quant_table5())), 3) %>% 
+      formatStyle(columns = c(4:ncol(quant_table5())), 'text-align' = 'center')
+  )
+  
+  quant_table_dl5 <- reactive({
+
+    compounds = tolower(unlist(strsplit(input$compounds5, split=",")))
+    
+    meta5() %>%
+      filter(compound_name %in% compounds) %>%
+      inner_join(quant_conc_tbl5()) %>%
+      mutate(compound_name=factor(compound_name,levels=compounds)) %>%
+      replace_na(list(itsd="peak")) %>%
+      reshape2::dcast(sampleid+compound_name+conc ~ itsd,value.var="peakarea",
+                      fun.aggregate=mean) %>%
+      mutate(norm_peak = peak / ITSD) %>%
+      filter(!grepl("^CC[0-9]+",sampleid)) %>%
+      left_join(modelstart5()) %>%
+      mutate(quant_val =  (norm_peak - (`(Intercept)`))/slope_value*as.numeric(input$xfactor)) %>%
+      arrange(compound_name) %>%
+      mutate(quant_val = ifelse(quant_val < 0,0,quant_val),
+             quant_val = round(quant_val,2)) %>%
+      reshape2::dcast(sampleid ~ compound_name, value.var="quant_val",fill=0) #%>%
+      #separate(Data.File,into=c("num","date_run","batch","sampleid","conc"),sep="\\_\\_") %>%
+      #arrange(num) %>%
+      #select(-num,-date_run,-batch,-conc)
+
+  })
+  
+  #download handler
+  output$downloadData5 <- downloadHandler(
+    
+    filename = function(){
+      paste0("quant_results_",
+             gsub("\\.csv","",input$filename),"_",
+             gsub("\\-","",Sys.Date()),".csv")
+    },
+    
+    content = function(file) {
+      write.csv(quant_table_dl5(),file,
                 row.names=F,quote=F)
     }
   )
