@@ -1,6 +1,5 @@
 library(shiny)
 library(tidyverse)
-library(ggtree)
 library(stringr)
 library(yingtools2)
 library(shinythemes)
@@ -10,6 +9,8 @@ library(gridExtra)
 library(DT)
 library(ape)
 
+# Sys.setenv(SHELL = "/bin/bash")
+
 # load data ---------------------------------------------------------------
 
 # change this flag to FALSE when running on virtual box
@@ -17,7 +18,7 @@ localF = T
 
 if (localF){
   # local 
-  load("~/OneDrive - The University of Chicago/dfimmfshiny/biobank/shiny_image4.RData")
+  load("~/OneDrive - The University of Chicago/dfimmfshiny/biobank/shiny_image_sm.RData")
   
   scfa <- read.csv(file="/Volumes/pamer-lab/Eric.Littmann/shiny_apps/4_10_20_scfa.csv",
                    stringsAsFactors = F) %>%
@@ -26,20 +27,27 @@ if (localF){
   protdb <- "/Volumes/pamer-lab/Eric.Littmann/shiny_apps/blast_db/msk_library_all_prots"
   
   db16s <- "/Volumes/pamer-lab/EddiLin/database/biobank_16s/biobank.16s.all"
-  
+
 } else {
   # virtual machine version
-  
-  load("/pamer-lab/Eric.Littmann/shiny_apps/shiny_image4.RData")
-  
-  scfa <- read.csv(file="/pamer-lab/Eric.Littmann/shiny_apps/4_10_20_scfa.csv",
+   load("/srv/shiny-server/biobank/shiny_image_sm.RData")
+#  load("/pamer-lab/Eric.Littmann/shiny_apps/shiny_image_sm.RData") 
+#  load("/pamer-lab/Eric.Littmann/shiny_apps/shiny_image4.RData")
+
+scfa <- read.csv(file="/srv/shiny-server/biobank/4_10_20_scfa.csv",
                    stringsAsFactors = F) %>%
-    select(-X)
+    select(-X) 
+
+ 
+#  scfa <- read.csv(file="/pamer-lab/Eric.Littmann/shiny_apps/4_10_20_scfa.csv",
+#                   stringsAsFactors = F) %>%
+#    select(-X)
   
-  protdb <- "/pamer-lab/Eric.Littmann/shiny_apps/blast_db/msk_library_all_prots"
-  
-  db16s <- "/pamer-lab/EddiLin/database/biobank_16s/biobank.16s.all"
-  
+#  protdb <- "/pamer-lab/Eric.Littmann/shiny_apps/blast_db/msk_library_all_prots"
+protdb <- "/srv/shiny-server/biobank/msk_library_all_prots"  
+#  db16s <- "/pamer-lab/EddiLin/database/biobank_16s/biobank.16s.all"
+db16s <- "/srv/shiny-server/biobank/biobank.16s.all"
+
   
 }
 
@@ -213,18 +221,19 @@ make_metabomoics <- function(show_msk_id=T){
 
 make_kraken_plot <- function(mskid){
   
-  int <- kraken2 %>%
+  intk <- kraken2 %>%
     left_join(lookup %>%
                 select(msk_id,seq_id)) %>%
-    filter(msk_id==mskid) %>%
-    group_by(seq_id) %>%
-    summarize(total=sum(length)) 
+    filter(msk_id %in% mskid) %>%
+    group_by(seq_id,msk_id) %>%
+    summarize(total=sum(length)) %>%
+    mutate(sideLab = paste0("MSK_id:",msk_id,"\nTotal bp:", total))
   
-  gg <- kraken2 %>%
+  bardf <- kraken2 %>%
     left_join(lookup %>%
                 select(msk_id,seq_id)) %>%
-    filter(msk_id==mskid) %>%
-    group_by(seq_id) %>%
+    filter(msk_id %in% mskid) %>%
+    group_by(msk_id, seq_id) %>%
     mutate(total=sum(length)) %>%
     ungroup() %>%
     group_by(msk_id,seq_id,total,taxon) %>%
@@ -241,15 +250,20 @@ make_kraken_plot <- function(mskid){
     mutate(cum.pct=cumsum(pctseqs),
            prev=lag(cum.pct)) %>%
     replace_na(list(prev=0)) %>%
-    mutate(y.text=(prev+cum.pct)/2) %>%
-    ggplot() +
-    geom_bar(aes(x=seq_id,y=pctseqs,fill=taxon),position="fill",stat="identity") +
+    mutate(y.text=(prev+cum.pct)/2) 
+  
+  gg <- ggplot(bardf) +
+    geom_bar(aes(x=seq_id,y=pctseqs,fill=taxon),
+             position="fill",stat="identity",
+             width = 0.75) +
     geom_text(aes(x=seq_id,y=1-y.text,label=tlabel)) +
     theme_bw() +
     theme(legend.position = "none") +
-    #facet_wrap("species") +
-    ylab("relative abundance") +
-    ggtitle(paste("contig lengths per taxon added together\ntotal genome size:",int$total))
+    labs(title = "contig lengths per taxon added together",
+         y = "relative abundance") +
+    geom_text(data = intk, 
+              aes(x= seq_id, y = 0.5, label = sideLab),
+              hjust = 0.5, nudge_x = -0.45, angle = 90) 
   
   return(gg)
   
@@ -259,12 +273,7 @@ make_kraken_plot <- function(mskid){
 
 # server ------------------------------------------------------------------
 
-server <- function(input, output, session) {
-  
-  url <- a("DFI wiki",href="http://128.135.41.103/wiki/index.php")
-  output$url <- renderUI({
-    tagList("Wiki link:",url)
-  })
+shinyServer(function(input, output, session) {
   
   #tree plot
   tree_reactive <- reactive({
@@ -297,7 +306,7 @@ server <- function(input, output, session) {
     print("running BLAST...")
     
     withProgress(message="running BLAST.. this may take a few minutes..",{
-      bdata <- system(paste0(input$program,
+      bdata <- system(paste0("/usr/local/sbin/",input$program,
                              #"blastp",
                              " -query ",
                              tmp," -db ",
@@ -383,7 +392,7 @@ server <- function(input, output, session) {
     print("running BLAST...")
     
     withProgress(message="running BLASTn.. this may take a few minutes..",{
-      b16sdata <- system(paste0("blastn",
+      b16sdata <- system(paste0("/usr/local/sbin/blastn",
                                 " -query ",
                                 tmp16s," -db ",
                                 db16s,
@@ -448,14 +457,16 @@ server <- function(input, output, session) {
   
   #metabolomics plot ----------------
   metabolomics_reactive <- reactive({
-    make_metabomoics(show_msk_id=input$msk_id)
+    make_metabomoics(show_msk_id=input$metamsk_id)
   })
   output$metabolomics <- renderPlot({
     metabolomics_reactive()
   })
+
   
   kraken2_reactive <- reactive({
-    make_kraken_plot(mskid=input$kraken_mskid)
+    kids <- trimws(str_split(input$kraken_mskid,",")[[1]])
+    make_kraken_plot(mskid = kids)
   })
   
   output$kraken2 <- renderPlot({
@@ -494,7 +505,10 @@ server <- function(input, output, session) {
     #datatable(tbl) %>%
     #formatStyle(colnames(tbl),background = "black"),
     tbl,
-    options = list(pageLength=5),
-    escape=F
+    class = "display nowrap compact",
+    options = list(pageLength=25, scrollX = TRUE,
+                   search = list(regex = T, caseInsensitive = T)),
+    escape = F,
+    filter = "top"
   )
-}
+})
