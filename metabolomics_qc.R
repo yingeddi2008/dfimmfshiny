@@ -1,4 +1,4 @@
-rm(list=ls())
+rm(list=ls())  
 library(tidyverse)
 library(reshape2)
 library(shiny)
@@ -8,6 +8,7 @@ library(broom)
 library(data.table)
 library(yingtools2)
 library(scales)
+
 setwd("/Volumes/chaubard-lab/shiny_workspace/csvs/")
 
 # functions ---------------------------------------------------------------
@@ -40,7 +41,7 @@ twoFold <- function(startCon,
 anyFold <- function(startCon, 
                     compound = c("Butyrate", "Propionate","Acetate"), 
                     series = 8, 
-                    fold=2,
+                    fold = 2,
                     prefix = "CC") {
   require(assertive.types)
   require(assertive.base)
@@ -192,8 +193,8 @@ readin_meta_csv_single_file <- function(filename,na.value=0,recursive=F){
 }
 
 make_norm_conc_tbl <- function(df,
-                               dil_compounds="Valerate,Phenol,Valine_D8,Proline_D7, Succinate",
-                               conc_compounds="Phenol"){
+                               dil_compounds = "Valerate,Phenol,Valine_D8,Proline_D7, Succinate",
+                               conc_compounds = "Phenol"){
   
   #make df with average for conc and diluted
   #dil_compounds=c("Valine_D8","Valerate")
@@ -217,7 +218,7 @@ make_norm_conc_tbl <- function(df,
   
 }
 
-get_indole_conc <- function(conc,compounds,series=11){
+get_indole_conc <- function(conc, compounds,series=11){
   #compounds <- inputcompounds2
   compounds <- "niacin,tyrosine,phenylalanine,kynurenine,Serotonin,anthranilicacid,tryptophan,5HIAA,tryptamine,kynurenicacid,melatonin"
   series <- 11
@@ -316,11 +317,13 @@ ui <- fluidPage(
               tabPanel("PFFBr Quant QC", theme = shinytheme("flatly"),
                        sidebarLayout(
                          sidebarPanel(width = 3,
-                                      textInput("compounds","Enter ITSD compounds (comma separated):",
-                                                value="Acetate,Propionate,Butyrate,Succinate"),
+                                      textInput(inputId = "compounds",
+                                                label = "Enter ITSD compounds (comma separated):",
+                                                value = "Acetate,Propionate,Butyrate,Succinate"),
                                       br(),
-                                      textInput("quant_conc","Quant con/dil:",
-                                                value="dil,dil,dil,dil"),
+                                      textInput(inputId = "quant_conc",
+                                                label = "Quant con/dil:",
+                                                value = "dil,dil,dil,dil"),
                                       h4("ITSD dilution calculation"),
                                       numericInput("xfactor","Mult factor:",value = 11),
                                       #numericInput("start","Enter concentration(s):",value = 100),
@@ -338,7 +341,7 @@ ui <- fluidPage(
                            dataTableOutput("model"),
                            h4("Standardized table:"),
                            dataTableOutput("quant_tbl"),
-                           downloadButton("downloadData", "Download OFFBr Quant Table")
+                           downloadButton("downloadData", "Download PFFBr Quant Table")
                          )
                        )
               ),
@@ -784,7 +787,7 @@ server <- function(input, output, session) {
         left_join(conc_filter()) %>%
         # replace_na(list(checked="concentrated")) %>%
         filter(conc==checked, is.na(itsd),
-               !grepl("CC[0-9]+", sampleid)) %>%
+               !grepl("(__CC[0-9]+__)", sampleid)) %>%
         #select(-checked) %>%
         left_join(conc_int()) %>%
         mutate(norm_peak=peakarea / avg) %>%
@@ -799,11 +802,18 @@ server <- function(input, output, session) {
         #                        "PooledQC",
         #                        "BHIQC_1",
         #                        "BHIQC_2")) %>%
-        dplyr::select(num,sampleid, compound_name, norm_peak) %>%
+        mutate(sampleid = ifelse(sampleid %in% 
+                                   c("PooledQC", "BHIQC_1", "BHIQC_2", "MB", "MB_1", "MB_2","PlasmaQC"), 
+                                 paste(num, sampleid, conc, sep = "__"), 
+                                 sampleid)) %>% 
+        dplyr::select(sampleid, compound_name, norm_peak) %>%
         mutate(norm_peak = round(norm_peak,5)) %>%
-        reshape2::dcast(num+sampleid ~ compound_name,value.var="norm_peak",fun.aggregate=mean) %>%
-        arrange(num) %>%
-        select(-num)
+        group_by(sampleid, compound_name) %>%
+        summarise(norm_peak = mean(norm_peak)) %>%
+        # reshape2::dcast(sampleid ~ compound_name, value.var = "norm_peak") %>%
+        # arrange(compound_name)# %>% 
+        pivot_wider(names_from = compound_name, values_from = norm_peak)
+        # select(-num)
     }else{
       rawdf() %>%
         left_join(conc_filter()) %>%
@@ -818,17 +828,24 @@ server <- function(input, output, session) {
         reshape2::melt(id.vars=c("sampleid")) %>%
         dplyr::rename(compound_name=variable,norm_peak=value) %>%
         separate(sampleid,into=c("num","date","batch","sampleid","conc"),
-                 sep="\\_\\_") %>%
+                 sep="__") %>%
+        mutate(sampleid = ifelse(sampleid %in% c("PooledQC", "BHIQC_1", "BHIQC_2", "MB","MB_1", "MB_2","PlasmaQC"), 
+                                 paste(num, sampleid, conc, sep = "__"), 
+                                 sampleid)) %>% 
         filter(!is.na(norm_peak)) %>%
-        filter(sampleid %!in% c("MB_1","MB_2",
-                                "PooledQC",
-                                "BHIQC_1",
-                                "BHIQC_2")) %>%
+        filter(!str_detect(sampleid, "MB"),
+                 !str_detect(sampleid, "PooledQC"),
+                 !str_detect(sampleid, "BHIQC"),
+                 !str_detect(sampleid, "PlasmaQC")
+        ) %>%
         dplyr::select(num,sampleid, compound_name, norm_peak) %>%
         mutate(norm_peak = round(norm_peak,5)) %>%
-        reshape2::dcast(num+sampleid ~ compound_name,value.var="norm_peak",fun.aggregate=mean) %>%
-        arrange(num) %>%
-        select(-num)
+        group_by(sampleid, compound_name) %>% 
+        summarise(norm_peak = mean(norm_peak)) %>%
+        # reshape2::dcast(num+sampleid ~ compound_name,value.var="norm_peak",fun.aggregate=mean) %>%
+        # arrange(compound_name) #%>% 
+        pivot_wider(names_from = compound_name, values_from = norm_peak)
+        # select(-num)
     }
   })
   
@@ -1432,5 +1449,5 @@ server <- function(input, output, session) {
 
 # run app -----------------------------------------------------------------
 
-#shinyApp(ui, server)
-runApp(list(ui=ui,server=server),host="0.0.0.0",port=5000)
+shinyApp(ui, server)
+# runApp(list(ui=ui,server=server),host="0.0.0.0",port=5000)
