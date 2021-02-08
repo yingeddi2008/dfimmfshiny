@@ -803,7 +803,14 @@ server <- function(input, output, session) {
         #                        "BHIQC_1",
         #                        "BHIQC_2")) %>%
         mutate(sampleid = ifelse(sampleid %in% 
-                                   c("PooledQC", "BHIQC_1", "BHIQC_2", "MB", "MB_1", "MB_2","PlasmaQC"), 
+                                   c("PooledQC",
+                                     "Pooled_QC",
+                                     "BHIQC_1", 
+                                     "BHIQC_2", 
+                                     "MB", 
+                                     "MB_1", 
+                                     "MB_2",
+                                     "PlasmaQC"), 
                                  paste(num, sampleid, conc, sep = "__"), 
                                  sampleid)) %>% 
         dplyr::select(sampleid, compound_name, norm_peak) %>%
@@ -819,7 +826,8 @@ server <- function(input, output, session) {
         left_join(conc_filter()) %>%
         # replace_na(list(checked="concentrated")) %>%
         filter(conc==checked, is.na(itsd),
-               !grepl("CC[0-9]+", sampleid)) %>%
+               # 
+               ) %>%
         #select(-checked) %>%
         left_join(conc_int()) %>%
         mutate(norm_peak=peakarea / avg) %>%
@@ -829,14 +837,22 @@ server <- function(input, output, session) {
         dplyr::rename(compound_name=variable,norm_peak=value) %>%
         separate(sampleid,into=c("num","date","batch","sampleid","conc"),
                  sep="__") %>%
-        mutate(sampleid = ifelse(sampleid %in% c("PooledQC", "BHIQC_1", "BHIQC_2", "MB","MB_1", "MB_2","PlasmaQC"), 
+        mutate(sampleid = ifelse(sampleid %in% c("PooledQC",
+                                                 "Pooled_QC",
+                                                 "BHIQC_1", 
+                                                 "BHIQC_2", 
+                                                 "MB",
+                                                 "MB_1", 
+                                                 "MB_2",
+                                                 "PlasmaQC"), 
                                  paste(num, sampleid, conc, sep = "__"), 
                                  sampleid)) %>% 
         filter(!is.na(norm_peak)) %>%
         filter(!str_detect(sampleid, "MB"),
-                 !str_detect(sampleid, "PooledQC"),
+                 !str_detect(sampleid, "Pooled"),
                  !str_detect(sampleid, "BHIQC"),
-                 !str_detect(sampleid, "PlasmaQC")
+                 !str_detect(sampleid, "PlasmaQC"),
+                 !grepl("CC[0-9]+", sampleid)
         ) %>%
         dplyr::select(num,sampleid, compound_name, norm_peak) %>%
         mutate(norm_peak = round(norm_peak,5)) %>%
