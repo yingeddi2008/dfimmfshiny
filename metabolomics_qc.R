@@ -327,7 +327,7 @@ wddir <- "/Volumes/chaubard-lab/shiny_workspace/csvs/"
 
 ui <- fluidPage(
   # shinythemes::themeSelector(),
-  titlePanel("DFI Metabolomics QC (v1.7.1)"),
+  titlePanel("DFI Metabolomics QC (v1.7.2)"),
   br(),
   
   # CSV file selector -------------------------------------------------------
@@ -1825,5 +1825,5 @@ server <- function(input, output, session) {
 
 # run app -----------------------------------------------------------------
 
-shinyApp(ui, server)
-# runApp(list(ui=ui,server=server),host="0.0.0.0",port=5000)
+# shinyApp(ui, server)
+runApp(list(ui=ui,server=server),host="0.0.0.0",port=5000)
