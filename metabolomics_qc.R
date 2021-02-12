@@ -407,17 +407,10 @@ ui <- fluidPage(
                                        uiOutput("compound_list"),
                                        plotOutput("raw_boxplots",height="1400px")),
                            h4("Normalized heatmap"),
-                           # radioButtons("qcfil_heatmap", "Heatmap Options",
-                           #              choices = list("All Data" = 1, 
-                           #                             "Remove QCs" = 2, 
-                           #                             "Only QCs" = 3),
-                           #              selected = 1),
-                           checkboxInput("qcfil_heatmap", "Remove QCs"),
                            downloadButton("heatmap_download", "Download Heatmap"),
                            plotOutput("heatmap_plot", 
                                       height = "1000px",
                                       width = "125%"),
-                           # dataTableOutput("heatmap_plot"),
                            h4("Intermediate table:"),
                            dataTableOutput("conc_filter"),
                            h4("Normalized table:"),
@@ -972,12 +965,12 @@ server <- function(input, output, session) {
   
   #make heatmap:
   heatmap_plot <- function()({
-    
-    if(input$qcfil_heatmap==F){
       rawdf() %>%
         left_join(conc_filter()) %>%
+        replace_na(list(checked="concentrated")) %>%
         filter(conc==checked, is.na(itsd),
                !grepl("(__CC[0-9]+__)", sampleid)) %>%
+        select(-checked) %>%
         left_join(conc_int()) %>%
         left_join(conc_int_heatmap()) %>% 
         mutate(norm_peak = ifelse(is.finite(log((peakarea / avg), base = 2)),
@@ -1003,13 +996,19 @@ server <- function(input, output, session) {
                                      "Hexanes"), 
                                  paste(num, sampleid, conc, sep = "__"), 
                                  sampleid)) %>% 
+        filter(!str_detect(sampleid, "MB"),
+                 !str_detect(sampleid, "Pooled"),
+                 !str_detect(sampleid, "BHIQC"),
+                 !str_detect(sampleid, "Plasma"),
+                 !str_detect(sampleid, "Hexanes"),
+               !grepl("CC[0-9]+", sampleid)) %>%
         dplyr::select(sampleid, compound_name, norm_peak) %>%
         mutate(norm_peak = round(norm_peak,5)) %>%
         group_by(sampleid, compound_name) %>%
         summarise(norm_peak = mean(norm_peak)) %>%
         pivot_wider(names_from = compound_name, values_from = norm_peak) %>% 
         # filter_all(all_vars(!is.infinite(.))) %>% 
-        # drop_na(.) %>% 
+        drop_na(.) %>%
         column_to_rownames(., var = "sampleid") %>% 
         as.matrix(.) %>%
         t(.) %>% 
@@ -1018,59 +1017,7 @@ server <- function(input, output, session) {
         cellwidth = ncol(heatmap_data()) / (ncol(heatmap_data())*0.0825)+1.5,
         angle_col = "90",
         color=colorRampPalette(c("navy", "white", "red"))(50),
-        )
-    } else {
-      rawdf() %>%
-        left_join(conc_filter()) %>%
-        filter(conc==checked, is.na(itsd)) %>%
-        left_join(conc_int()) %>%
-        left_join(conc_int_heatmap()) %>% 
-        mutate(norm_peak = ifelse(is.finite(log((peakarea / avg), base = 2)),
-                                  log((peakarea / avg), base = 2),
-                                  (min_peak / 10))) %>%
-        dplyr::select(sampleid, compound_name, norm_peak) %>%
-        spread(compound_name, norm_peak, fill = NA) %>%
-        reshape2::melt(id.vars=c("sampleid")) %>%
-        dplyr::rename(compound_name=variable,norm_peak=value) %>%
-        separate(sampleid,into=c("num","date","batch","sampleid","conc"),
-                 sep="__") %>%
-        mutate(sampleid = ifelse(sampleid %in% c("PooledQC",
-                                                 "Pooled_QC",
-                                                 "BHIQC_1", 
-                                                 "BHIQC_2", 
-                                                 "MB",
-                                                 "MB_1", 
-                                                 "MB_2",
-                                                 "PlasmaQC",
-                                                 "Plasma_QC",
-                                                 "Hexanes"), 
-                                 paste(num, sampleid, conc, sep = "__"), 
-                                 sampleid)) %>% 
-        filter(!is.na(norm_peak)) %>%
-        filter(!str_detect(sampleid, "MB"),
-               !str_detect(sampleid, "Pooled"),
-               !str_detect(sampleid, "BHIQC"),
-               !str_detect(sampleid, "Plasma"),
-               !str_detect(sampleid, "Hexanes"),
-               !grepl("CC[0-9]+", sampleid)
-        ) %>%
-        dplyr::select(num,sampleid, compound_name, norm_peak) %>%
-        mutate(norm_peak = round(norm_peak,5)) %>%
-        group_by(sampleid, compound_name) %>% 
-        summarise(norm_peak = mean(norm_peak)) %>%
-        pivot_wider(names_from = compound_name, values_from = norm_peak) %>%
-        # filter_all(all_vars(!is.infinite(.))) %>% 
-        # drop_na(.) %>%  
-      column_to_rownames(., var = "sampleid") %>%
-        as.matrix(.) %>%
-        t(.) %>% 
-        pheatmap(., scale = "none",
-                 cellheight = nrow(heatmap_data()) / (nrow(heatmap_data())*0.075),
-                 cellwidth = ncol(heatmap_data()) / (ncol(heatmap_data())*0.07)+1.5,
-                 angle_col = "90",
-                 color=colorRampPalette(c("navy", "white", "red"))(50)
-        )
-    } 
+        ) 
   })
     
   output$heatmap_plot <- renderPlot(
@@ -1078,8 +1025,6 @@ server <- function(input, output, session) {
   )
 
   heatmap_data <- function()({
-    
-    if(input$qcfil_heatmap==F){
       rawdf() %>%
         left_join(conc_filter()) %>%
         filter(conc==checked, is.na(itsd),
@@ -1115,69 +1060,15 @@ server <- function(input, output, session) {
         summarise(norm_peak = mean(norm_peak)) %>%
         pivot_wider(names_from = compound_name, values_from = norm_peak) %>% 
         # filter_all(all_vars(!is.infinite(.))) %>% 
-        # drop_na(.) %>% 
+        drop_na(.) %>%
         column_to_rownames(., var = "sampleid") %>% 
         as.matrix(.) %>%
         t(.)
-    } else {
-      rawdf() %>%
-        left_join(conc_filter()) %>%
-        filter(conc==checked, is.na(itsd)) %>%
-        left_join(conc_int()) %>%
-        left_join(conc_int_heatmap()) %>% 
-        mutate(norm_peak = ifelse(is.finite(log((peakarea / avg), base = 2)),
-                                  log((peakarea / avg), base = 2),
-                                  (min_peak / 10))) %>%
-        dplyr::select(sampleid, compound_name, norm_peak) %>%
-        spread(compound_name, norm_peak, fill = NA) %>%
-        reshape2::melt(id.vars=c("sampleid")) %>%
-        dplyr::rename(compound_name=variable,norm_peak=value) %>%
-        separate(sampleid,into=c("num","date","batch","sampleid","conc"),
-                 sep="__") %>%
-        mutate(sampleid = ifelse(sampleid %in% c("PooledQC",
-                                                 "Pooled_QC",
-                                                 "BHIQC_1", 
-                                                 "BHIQC_2", 
-                                                 "MB",
-                                                 "MB_1", 
-                                                 "MB_2",
-                                                 "PlasmaQC",
-                                                 "Plasma_QC",
-                                                 "Hexanes"), 
-                                 paste(num, sampleid, conc, sep = "__"), 
-                                 sampleid)) %>% 
-        filter(!is.na(norm_peak)) %>%
-        filter(!str_detect(sampleid, "MB"),
-               !str_detect(sampleid, "Pooled"),
-               !str_detect(sampleid, "BHIQC"),
-               !str_detect(sampleid, "Plasma"),
-               !str_detect(sampleid, "Hexanes"),
-               !grepl("CC[0-9]+", sampleid)
-        ) %>%
-        dplyr::select(num,sampleid, compound_name, norm_peak) %>%
-        mutate(norm_peak = round(norm_peak,5)) %>%
-        group_by(sampleid, compound_name) %>% 
-        summarise(norm_peak = mean(norm_peak)) %>%
-        pivot_wider(names_from = compound_name, values_from = norm_peak) %>%
-        # filter_all(all_vars(!is.infinite(.))) %>% 
-        # drop_na(.) %>%  
-        column_to_rownames(., var = "sampleid") %>%
-        as.matrix(.) %>%
-        t(.)
-    } 
-  })
-  
-  heatmap_data_label <- reactive({
-    if(input$qcfil_heatmap==F){
-  return("normalized_heatmap_")
-    } else {
-  return("removed_qcs_normalized_heatmap_")
-    } 
   })
 
   output$heatmap_download <- downloadHandler(
     filename = function(){
-      paste0(heatmap_data_label(),input$filename,"_",Sys.Date(),".pdf")
+      paste0("normalized_heatmap_",input$filename,"_",Sys.Date(),".pdf")
     },
     content = function(file) {
       pdf(file, 
@@ -1225,7 +1116,7 @@ server <- function(input, output, session) {
     
     rawdf() %>%
       left_join(conc_filter()) %>%
-      # replace_na(list(checked="concentrated")) %>%
+      replace_na(list(checked="concentrated")) %>%
       filter(conc==checked) %>%
       select(-checked) %>%
       left_join(conc_int()) %>%
@@ -1246,10 +1137,10 @@ server <- function(input, output, session) {
     if(input$qcfil==F){
       rawdf() %>%
         left_join(conc_filter()) %>%
-        # replace_na(list(checked="concentrated")) %>%
+        replace_na(list(checked="concentrated")) %>%
         filter(conc==checked, is.na(itsd),
                !grepl("(__CC[0-9]+__)", sampleid)) %>%
-        #select(-checked) %>%
+        select(-checked) %>%
         left_join(conc_int()) %>%
         mutate(norm_peak=peakarea / avg) %>%
         dplyr::select(sampleid, compound_name, norm_peak) %>%
@@ -1257,41 +1148,35 @@ server <- function(input, output, session) {
         reshape2::melt(id.vars=c("sampleid")) %>%
         dplyr::rename(compound_name=variable,norm_peak=value) %>%
         separate(sampleid,into=c("num","date","batch","sampleid","conc"),
-                 sep="\\_\\_") %>%
+                 sep="__") %>%
         filter(!is.na(norm_peak)) %>%
-        # filter(sampleid %!in% c("MB_1","MB_2",
-        #                        "PooledQC",
-        #                        "BHIQC_1",
-        #                        "BHIQC_2")) %>%
-        mutate(sampleid = ifelse(sampleid %in% 
+        mutate(sampleid = ifelse(sampleid %in%
                                    c("PooledQC",
                                      "Pooled_QC",
-                                     "BHIQC_1", 
-                                     "BHIQC_2", 
-                                     "MB", 
-                                     "MB_1", 
+                                     "BHIQC_1",
+                                     "BHIQC_2",
+                                     "MB",
+                                     "MB_1",
                                      "MB_2",
                                      "PlasmaQC",
                                      "Plasma_QC",
-                                     "Hexanes"), 
-                                 paste(num, sampleid, conc, sep = "__"), 
-                                 sampleid)) %>% 
+                                     "Hexanes"),
+                                 paste(num, sampleid, conc, sep = "__"),
+                                 sampleid)) %>%
         dplyr::select(sampleid, compound_name, norm_peak) %>%
         mutate(norm_peak = round(norm_peak,5)) %>%
         group_by(sampleid, compound_name) %>%
         summarise(norm_peak = mean(norm_peak)) %>%
-        # reshape2::dcast(sampleid ~ compound_name, value.var = "norm_peak") %>%
-        # arrange(compound_name)# %>% 
+    #     # reshape2::dcast(sampleid ~ compound_name, value.var = "norm_peak") %>%
+        arrange(compound_name) %>%
         pivot_wider(names_from = compound_name, values_from = norm_peak)
         # select(-num)
     }else{
       rawdf() %>%
         left_join(conc_filter()) %>%
-        # replace_na(list(checked="concentrated")) %>%
-        filter(conc==checked, is.na(itsd),
-               # 
-               ) %>%
-        #select(-checked) %>%
+        replace_na(list(checked="concentrated")) %>%
+        filter(conc==checked, is.na(itsd)) %>%
+        select(-checked) %>%
         left_join(conc_int()) %>%
         mutate(norm_peak=peakarea / avg) %>%
         dplyr::select(sampleid, compound_name, norm_peak) %>%
@@ -1302,16 +1187,16 @@ server <- function(input, output, session) {
                  sep="__") %>%
         mutate(sampleid = ifelse(sampleid %in% c("PooledQC",
                                                  "Pooled_QC",
-                                                 "BHIQC_1", 
-                                                 "BHIQC_2", 
+                                                 "BHIQC_1",
+                                                 "BHIQC_2",
                                                  "MB",
-                                                 "MB_1", 
+                                                 "MB_1",
                                                  "MB_2",
                                                  "PlasmaQC",
                                                  "Plasma_QC",
-                                                 "Hexanes"), 
-                                 paste(num, sampleid, conc, sep = "__"), 
-                                 sampleid)) %>% 
+                                                 "Hexanes"),
+                                 paste(num, sampleid, conc, sep = "__"),
+                                 sampleid)) %>%
         filter(!is.na(norm_peak)) %>%
         filter(!str_detect(sampleid, "MB"),
                  !str_detect(sampleid, "Pooled"),
@@ -1322,10 +1207,10 @@ server <- function(input, output, session) {
         ) %>%
         dplyr::select(num,sampleid, compound_name, norm_peak) %>%
         mutate(norm_peak = round(norm_peak,5)) %>%
-        group_by(sampleid, compound_name) %>% 
+        group_by(sampleid, compound_name) %>%
         summarise(norm_peak = mean(norm_peak)) %>%
         # reshape2::dcast(num+sampleid ~ compound_name,value.var="norm_peak",fun.aggregate=mean) %>%
-        # arrange(compound_name) #%>% 
+        arrange(compound_name) %>%
         pivot_wider(names_from = compound_name, values_from = norm_peak)
         # select(-num)
     }
@@ -1338,11 +1223,20 @@ server <- function(input, output, session) {
       formatStyle(columns = c(2:ncol(norm_wide_tbl())), 'text-align' = 'center')
   )
   
+
+  norm_wide_tbl_label <- reactive({
+    if(input$qcfil==F){
+      return("normalized_results_")
+    } else {
+      return("removed_qcs_normalized_results_")
+    } 
+  })
+  
   #download handler
   output$downloadData2 <- downloadHandler(
     
     filename = function(){
-      paste0("normalized_results_",input$filename,"_",Sys.Date(),".csv")
+      paste0(norm_wide_tbl_label(),input$filename,"_",Sys.Date(),".csv")
     },
     
     content = function(file) {
@@ -1931,5 +1825,5 @@ server <- function(input, output, session) {
 
 # run app -----------------------------------------------------------------
 
-# shinyApp(ui, server)
-runApp(list(ui=ui,server=server),host="0.0.0.0",port=5000)
+shinyApp(ui, server)
+# runApp(list(ui=ui,server=server),host="0.0.0.0",port=5000)
