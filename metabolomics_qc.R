@@ -8,11 +8,7 @@ library(broom)
 library(data.table)
 library(yingtools2)
 library(scales)
-
-install.packages("pheatmap", repos = "http://cran.us.r-project.org")
 library(pheatmap)
-
-install.packages("ggsci", repos = "http://cran.us.r-project.org")
 library(ggsci)
 
 setwd("/Volumes/chaubard-lab/shiny_workspace/csvs/")
