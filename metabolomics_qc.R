@@ -8,8 +8,15 @@ library(broom)
 library(data.table)
 library(yingtools2)
 library(scales)
-library(pheatmap)
-library(ggsci)
+
+if (!require("pheatmap")) {
+  install.packages("pheatmap")
+  library(pheatmap)
+}
+if (!require("ggsci")) {
+  install.packages("ggsci")
+  library(ggsci)
+}
 
 setwd("/Volumes/chaubard-lab/shiny_workspace/csvs/")
 
