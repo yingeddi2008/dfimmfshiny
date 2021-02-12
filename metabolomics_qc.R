@@ -9,14 +9,11 @@ library(data.table)
 library(yingtools2)
 library(scales)
 
-if (!require("pheatmap")) {
-  install.packages("pheatmap")
-  library(pheatmap)
-}
-if (!require("ggsci")) {
-  install.packages("ggsci")
-  library(ggsci)
-}
+install.packages("pheatmap")
+library(pheatmap)
+
+install.packages("ggsci")
+library(ggsci)
 
 setwd("/Volumes/chaubard-lab/shiny_workspace/csvs/")
 
