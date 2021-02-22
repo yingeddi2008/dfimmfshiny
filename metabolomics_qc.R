@@ -353,7 +353,7 @@ wddir <- "/Volumes/chaubard-lab/shiny_workspace/csvs/"
 
 ui <- fluidPage(
   # shinythemes::themeSelector(),
-  titlePanel("DFI Metabolomics QC (v1.7.2)"),
+  titlePanel("DFI Metabolomics QC (v1.7.3)"),
   br(),
   
   # CSV file selector -------------------------------------------------------
