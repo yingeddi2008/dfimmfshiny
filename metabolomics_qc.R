@@ -317,43 +317,6 @@ readin_bile_csv_single_file <- function(filename,na.value=0,recursive=F){
   return(int)
 }
 
-make_norm_conc_tbl_tms <- function(df, compounds = ""){
-
-  
-  compounds <- trimws(unlist(strsplit(compounds,split=",")))
-  
-  int_conc <- tibble(compound_name = compounds) %>% 
-    inner_join(df) %>%
-    filter(itsd=="ITSD") %>%
-    # dplyr::count(compound_name, conc) %>%
-    # dplyr::count(sampleid) %>%
-    group_by(sampleid) %>%
-    summarize(avg=mean(peakarea))
-  
-  return(int_conc)
-  
-}
-
-make_norm_conc_heatmap_tms <- function(df, compounds = ""){
-  
-  
-  compounds <- trimws(unlist(strsplit(compounds,split=",")))
-  
-  int_conc <- tibble(compound_name = c(dil_compounds, conc_compounds),
-                     conc = c(rep("diluted",length(dil_compounds)),
-                              rep("concentrated",length(conc_compounds)))) %>% 
-    inner_join(df) %>%
-    filter(itsd=="ITSD") %>%
-    # dplyr::count(compound_name, conc) %>%
-    # dplyr::count(sampleid) %>%
-    group_by(compound_name) %>%
-    summarize(min_peak = ifelse(all(peakarea == 0), 0, min(peakarea[peakarea != 0])))
-  
-  return(int_conc)
-  
-}
-
-
 # set up directory and files ----------------------------------------------
 
 #system("open .")
@@ -363,7 +326,7 @@ wddir <- "/Volumes/chaubard-lab/shiny_workspace/csvs/"
 
 ui <- fluidPage(
   # shinythemes::themeSelector(),
-  titlePanel("DFI Metabolomics QC (v1.7.3)"),
+  titlePanel("DFI Metabolomics QC (v1.7.4)"),
   br(),
   
   # CSV file selector -------------------------------------------------------
@@ -559,7 +522,7 @@ ui <- fluidPage(
               
               # Bile acid normalization UI --------------------------------------------------------
               
-              tabPanel(HTML("Bile Acid<br/>Normalization (Coming soon!)"),fluidPage(theme = shinytheme("flatly")),
+              tabPanel(HTML("Bile Acid<br/>Normalization"),fluidPage(theme = shinytheme("flatly")),
                        sidebarLayout(
                          sidebarPanel(width = 3,
                                       br(),
@@ -610,8 +573,8 @@ ui <- fluidPage(
                                                    value=5000)
                          ),
                          mainPanel(
-                           splitLayout(cellWidths = c("25%","75%"),
-                                       uiOutput("compound_list_tms"),
+                           splitLayout(#cellWidths = c("25%","75%"),
+                                       # uiOutput("compound_list_tms"),
                                        plotOutput("raw_boxplots_tms",height="1072px")),
                            h4("Normalized heatmap"),
                            downloadButton("heatmap_download_tms", "Download TMS Heatmap"),
@@ -2127,373 +2090,373 @@ server <- function(input, output, session) {
     }
   )
   
-  # # Bile acid normalization tab -------------------------------------------------------
-  # 
-  # rawdf_ba <- reactive({
-  #   readin_bile_csv_single_file(file.path(wddir,input$filename),na.value = input$zero_val_bile_acid)
-  # })
-  # 
-  # csv_ba <- reactive({
-  #   
-  #   vars_ba <- rawdf_ba() %>%
-  #     mutate(compound_name=as.character(compound_name)) %>%
-  #     arrange(desc(compound_name)) %>%
-  #     filter(is.na(itsd)) %>%
-  #     distinct(compound_name) %>%
-  #     `$`(compound_name)
-  #   
-  #   return(vars_ba)
-  # })
-  # 
-  # output$compound_list_bile_acid <- renderUI({
-  #   checkboxGroupInput("check_compounds_bile_acid","Check = diluted",
-  #                      choices=csv_ba(),
-  #                      inline=F,
-  #                      selected = csv_ba())
-  # })
-  # 
-  # conc_int_bile_acid <- reactive({
-  #   
-  #   rawdf_ba() %>%
-  #     filter(itsd=="ITSD") %>%
-  #     group_by(letter) %>%
-  #     summarize(avg = mean(peakarea))
-  # })
-  # 
-  # conc_int_heatmap_bile_acid <- reactive({
-  #   
-  #   rawdf_ba() %>%
-  #     filter(itsd=="ITSD") %>%
-  #     group_by(compound_name) %>%
-  #     summarize(min_peak = ifelse(all(peakarea == 0), 0, min(peakarea[peakarea != 0])))
-  #   
-  # })
-  # 
-  # # output$conc_int_bile_acid <- renderDataTable(
-  # #   conc_int_bile_acid()
-  # # )
-  # 
-  # #make boxplots:
-  # raw_boxplots_bile_acid <- reactive({
-  #   
-  #   rawdf_ba() %>%
-  #     filter(is.na(itsd)) %>%
-  #     replace_na(list(itsd="not itsd")) %>%
-  #     ggplot(aes(y=compound_name,x=peakarea)) +
-  #     geom_boxplot(outlier.shape = NA) +
-  #     geom_jitter(width=0.1,height=0.1,alpha=0.3) +
-  #     theme_bw() +
-  #     theme(strip.text.x=element_text(size=15),
-  #           axis.text.y=element_text(size=13)) +
-  #     ylab("") +
-  #     xlab("peak area") +
-  #     facet_grid(itsd ~ conc,scales="free_y",space="free") +
-  #     scale_x_continuous(trans=log_epsilon_trans(epsilon=1000))
-  #   
-  # })
-  # 
-  # output$raw_boxplots_bile_acid <- renderPlot(
-  #   raw_boxplots_bile_acid()
+  # Bile acid normalization tab -------------------------------------------------------
+
+  rawdf_ba <- reactive({
+    readin_bile_csv_single_file(file.path(wddir,input$filename),na.value = input$zero_val_bile_acid)
+  })
+
+  csv_ba <- reactive({
+
+    vars_ba <- rawdf_ba() %>%
+      mutate(compound_name=as.character(compound_name)) %>%
+      arrange(desc(compound_name)) %>%
+      filter(is.na(itsd)) %>%
+      distinct(compound_name) %>%
+      `$`(compound_name)
+
+    return(vars_ba)
+  })
+
+  output$compound_list_bile_acid <- renderUI({
+    checkboxGroupInput("check_compounds_bile_acid","Check = diluted",
+                       choices=csv_ba(),
+                       inline=F,
+                       selected = csv_ba())
+  })
+
+  conc_int_bile_acid <- reactive({
+
+    rawdf_ba() %>%
+      filter(itsd=="ITSD") %>%
+      group_by(letter) %>%
+      summarize(avg = mean(peakarea))
+  })
+
+  conc_int_heatmap_bile_acid <- reactive({
+
+    rawdf_ba() %>%
+      filter(itsd=="ITSD") %>%
+      group_by(compound_name) %>%
+      summarize(min_peak = ifelse(all(peakarea == 0), 0, min(peakarea[peakarea != 0])))
+
+  })
+
+  # output$conc_int_bile_acid <- renderDataTable(
+  #   conc_int_bile_acid()
   # )
-  # 
-  # #make heatmap:
-  # heatmap_plot_bile_acid <- function()({
-  #   rawdf_ba() %>%
-  #     left_join(conc_filter_bile_acid()) %>%
-  #     replace_na(list(checked="concentrated")) %>%
-  #     filter(conc==checked, is.na(itsd),
-  #            !grepl("(CC[0-9]+)", sampleid)) %>%
-  #     select(-checked) %>%
-  #     left_join(conc_int_bile_acid()) %>%
-  #     mutate(norm_peak = ifelse(is.finite(log((peakarea / avg), base = 2)),
-  #                               log((peakarea / avg), base = 2),
-  #                               (min_peak * -20))) %>%
-  #     separate(Data.File,into=c("num","date","batch","sampleid","conc"),
-  #              sep="__") %>%
-  #     mutate(sampleid = ifelse(sampleid %in%
-  #                                c("PooledQC",
-  #                                  "Pooled_QC",
-  #                                  "SpikedPooledQC",
-  #                                  "Standards",
-  #                                  "BHIQC_1",
-  #                                  "BHIQC_2",
-  #                                  "MB",
-  #                                  "MB_1",
-  #                                  "MB_2",
-  #                                  "PlasmaQC",
-  #                                  "Plasma_QC",
-  #                                  "Plasma1",
-  #                                  "Plasma2",
-  #                                  "Plasma3",
-  #                                  "Hexanes"),
-  #                              paste(num, sampleid, conc, sep = "__"),
-  #                              sampleid)) %>%
-  #     mutate(sampleid = gsub(pattern = "X", replacement = "", sampleid)) %>%
-  #     dplyr::select(num, date, batch, sampleid, conc, compound_name, norm_peak) %>%
-  #     ungroup() %>%
-  #     add_count(date,batch,sampleid, compound_name, conc) %>%
-  #     mutate(sampleid = ifelse(n > 1, paste(num, sampleid, sep = "__"), sampleid),
-  #            sampleid = gsub(pattern = "X", replacement = "", sampleid)) %>% 
-  #     dplyr::select(sampleid, compound_name, norm_peak) %>% 
-  #     pivot_wider(names_from = compound_name, values_from = norm_peak, values_fill = NA) %>% 
-  #     filter(!str_detect(sampleid, "MB"),
-  #            !str_detect(sampleid, "Pooled"),
-  #            !str_detect(sampleid, "BHIQC"),
-  #            !str_detect(sampleid, "Plasma"),
-  #            !str_detect(sampleid, "Hexanes"),
-  #            !str_detect(sampleid, "Standards")) %>% 
-  #     drop_na(.) %>%
-  #     column_to_rownames(., var = "sampleid") %>%
-  #     as.matrix(.) %>%
-  #     t(.) %>%
-  #     pheatmap(., scale = "none",
-  #              cellheight = nrow(heatmap_data_bile_acid()) / (nrow(heatmap_data_bile_acid())*0.075),
-  #              cellwidth = ncol(heatmap_data_bile_acid()) / (ncol(heatmap_data_bile_acid())*0.0825)+1.5,
-  #              angle_col = "90",
-  #              color=colorRampPalette(c("navy", "white", "red"))(50),
-  #     )
-  # })
-  # 
-  # output$heatmap_plot_bile_acid <- renderPlot(
-  #   heatmap_plot_bile_acid()
-  # )
-  # 
-  # heatmap_data_bile_acid <- function()({
-  #   rawdf_ba() %>%
-  #     left_join(conc_filter_bile_acid()) %>%
-  #     replace_na(list(checked="concentrated")) %>%
-  #     filter(conc==checked, is.na(itsd),
-  #            !grepl("(CC[0-9]+)", sampleid)) %>%
-  #     select(-checked) %>%
-  #     left_join(conc_int_bile_acid()) %>%
-  #     mutate(norm_peak = ifelse(is.finite(log((peakarea / avg), base = 2)),
-  #                               log((peakarea / avg), base = 2),
-  #                               (min_peak * -20))) %>%
-  #     separate(Data.File,into=c("num","date","batch","sampleid","conc"),
-  #              sep="__") %>%
-  #     mutate(sampleid = ifelse(sampleid %in%
-  #                                c("PooledQC",
-  #                                  "Pooled_QC",
-  #                                  "SpikedPooledQC",
-  #                                  "Standards",
-  #                                  "BHIQC_1",
-  #                                  "BHIQC_2",
-  #                                  "MB",
-  #                                  "MB_1",
-  #                                  "MB_2",
-  #                                  "PlasmaQC",
-  #                                  "Plasma_QC",
-  #                                  "Plasma1",
-  #                                  "Plasma2",
-  #                                  "Plasma3",
-  #                                  "Hexanes"),
-  #                              paste(num, sampleid, conc, sep = "__"),
-  #                              sampleid)) %>%
-  #     mutate(sampleid = gsub(pattern = "X", replacement = "", sampleid)) %>%
-  #     dplyr::select(num, date, batch, sampleid, conc, compound_name, norm_peak) %>%
-  #     ungroup() %>%
-  #     add_count(date,batch,sampleid, compound_name, conc) %>%
-  #     mutate(sampleid = ifelse(n > 1, paste(num, sampleid,sep = "__"), sampleid),
-  #            sampleid = gsub(pattern = "X", replacement = "", sampleid)) %>% 
-  #     dplyr::select(sampleid, compound_name, norm_peak) %>% 
-  #     pivot_wider(names_from = compound_name, values_from = norm_peak, values_fill = NA) %>% 
-  #     filter(!str_detect(sampleid, "MB"),
-  #            !str_detect(sampleid, "Pooled"),
-  #            !str_detect(sampleid, "BHIQC"),
-  #            !str_detect(sampleid, "Plasma"),
-  #            !str_detect(sampleid, "Hexanes"),
-  #            !str_detect(sampleid, "Standards")) %>% 
-  #   drop_na(.) %>%
-  #     column_to_rownames(., var = "sampleid") %>%
-  #     as.matrix(.) %>%
-  #     t(.)
-  # })
-  # 
-  # output$heatmap_download_bile_acid <- downloadHandler(
-  #   filename = function(){
-  #     paste0("normalized_heatmap_",input$filename,"_",Sys.Date(),".pdf")
-  #   },
-  #   content = function(file) {
-  #     pdf(file,
-  #         height = nrow(heatmap_data_bile_acid()) / (nrow(heatmap_data_bile_acid())*0.075),
-  #         width = (ncol(heatmap_data_bile_acid()) / (ncol(heatmap_data_bile_acid())*0.07))+1.5
-  #     )
-  #     heatmap_plot_bile_acid()
-  #     dev.off()
-  #   },
-  #   contentType = 'PDF'
-  # )
-  # 
-  # 
-  # # Intermediate table
-  # conc_filter_bile_acid <- reactive({
-  #   
-  #   if(length(as.list(input$check_compounds_bile_acid)) > 0){
-  #     
-  #     leftovervars_ba <- csv_ba()[ !(csv_ba() %in% input$check_compounds_bile_acid) ]
-  #     
-  #     tibble(checked = rep("diluted", length(input$check_compounds_bile_acid)),
-  #            compound_name = input$check_compounds_bile_acid) %>%
-  #       bind_rows(tibble(checked = rep("concentrated", length(leftovervars_ba)),
-  #                        compound_name = leftovervars_ba)
-  #       )
-  #   }else{
-  #     
-  #     tibble(checked = "concentrated",
-  #            compound_name = csv_ba())
-  #   }
-  # })
-  # 
-  # #subset based on checkboxes.. make a dataframe of compounds in same order as checkboxes with input as a column
-  # subset_conc_bile_acid <- reactive({
-  #   rawdf_ba() %>%
-  #     left_join(conc_filter_bile_acid()) %>%
-  #     replace_na(list(checked="concentrated")) %>%
-  #     filter(conc==checked) %>%
-  #     select(-checked) %>%
-  #     left_join(conc_int_bile_acid()) %>%
-  #     mutate(norm_peak = peakarea / avg)
-  # })
-  # 
-  # output$conc_filter_bile_acid <- renderDataTable(
-  #   subset_conc_bile_acid() %>%
-  #     datatable() %>%
-  #     formatRound(c("norm_peak"), 3) %>%
-  #     formatStyle(columns = c("norm_peak"), 'text-align' = 'center')
-  # )
-  # 
-  # #download table
-  # #make wide table
-  # norm_wide_tbl_bile_acid <- reactive({
-  #   
-  #   if(input$qcfil_bile_acid==F){
-  #     rawdf_ba() %>%
-  #       left_join(conc_filter_bile_acid()) %>%
-  #       replace_na(list(checked="concentrated")) %>%
-  #       filter(conc==checked, is.na(itsd),
-  #              !grepl("(CC[0-9]+)", sampleid)) %>%
-  #       select(-checked) %>%
-  #       left_join(conc_int_bile_acid()) %>%
-  #       mutate(norm_peak = peakarea / avg) %>% 
-  #       separate(Data.File,into=c("num","date","batch","sampleid","conc"),
-  #                sep="__") %>%
-  #       mutate(sampleid = ifelse(sampleid %in%
-  #                                  c("PooledQC",
-  #                                    "Pooled_QC",
-  #                                    "SpikedPooledQC",
-  #                                    "Standards",
-  #                                    "BHIQC_1",
-  #                                    "BHIQC_2",
-  #                                    "MB",
-  #                                    "MB_1",
-  #                                    "MB_2",
-  #                                    "PlasmaQC",
-  #                                    "Plasma_QC",
-  #                                    "Plasma1",
-  #                                    "Plasma2",
-  #                                    "Plasma3",
-  #                                    "Hexanes"),
-  #                                paste(num, sampleid, conc, sep = "__"),
-  #                                sampleid)) %>%
-  #       mutate(sampleid = gsub(pattern = "X", replacement = "", sampleid)) %>%
-  #       dplyr::select(num, date, batch, sampleid, conc, compound_name, norm_peak) %>%
-  #       ungroup() %>%
-  #       add_count(date,batch,sampleid, compound_name, conc) %>%
-  #       mutate(sampleid = ifelse(n > 1, paste(num, sampleid, sep = "__"), sampleid),
-  #              sampleid = gsub(pattern = "X", replacement = "", sampleid)) %>% 
-  #       dplyr::select(sampleid, compound_name, norm_peak) %>% 
-  #       pivot_wider(names_from = compound_name, values_from = norm_peak, values_fill = NA)
-  #   }else{
-  #     rawdf_ba() %>%
-  #       left_join(conc_filter_bile_acid()) %>%
-  #       replace_na(list(checked="concentrated")) %>%
-  #       filter(conc==checked, is.na(itsd),
-  #              !grepl("(CC[0-9]+)", sampleid)) %>%
-  #       select(-checked) %>%
-  #       left_join(conc_int_bile_acid()) %>%
-  #       mutate(norm_peak = peakarea / avg) %>% 
-  #       separate(Data.File,into=c("num","date","batch","sampleid","conc"),
-  #                sep="__") %>%
-  #       mutate(sampleid = ifelse(sampleid %in%
-  #                                  c("PooledQC",
-  #                                    "Pooled_QC",
-  #                                    "SpikedPooledQC",
-  #                                    "Standards",
-  #                                    "BHIQC_1",
-  #                                    "BHIQC_2",
-  #                                    "MB",
-  #                                    "MB_1",
-  #                                    "MB_2",
-  #                                    "PlasmaQC",
-  #                                    "Plasma_QC",
-  #                                    "Plasma1",
-  #                                    "Plasma2",
-  #                                    "Plasma3",
-  #                                    "Hexanes"),
-  #                                paste(num, sampleid, conc, sep = "__"),
-  #                                sampleid)) %>%
-  #       mutate(sampleid = gsub(pattern = "X", replacement = "", sampleid)) %>%
-  #       dplyr::select(num, date, batch, sampleid, conc, compound_name, norm_peak) %>%
-  #       ungroup() %>%
-  #       add_count(date,batch,sampleid, compound_name, conc) %>%
-  #       mutate(sampleid = ifelse(n > 1, paste(num, sampleid, sep = "__"), sampleid),
-  #              sampleid = gsub(pattern = "X", replacement = "", sampleid)) %>% 
-  #       dplyr::select(sampleid, compound_name, norm_peak) %>% 
-  #       pivot_wider(names_from = compound_name, values_from = norm_peak, values_fill = NA) %>% 
-  #       filter(!str_detect(sampleid, "MB"),
-  #              !str_detect(sampleid, "Pooled"),
-  #              !str_detect(sampleid, "BHIQC"),
-  #              !str_detect(sampleid, "Plasma"),
-  #              !str_detect(sampleid, "Hexanes"),
-  #              !str_detect(sampleid, "Standards"))
-  #   }
-  # })
-  # 
-  # output$normwide_bile_acid <- renderDataTable(
-  #   norm_wide_tbl_bile_acid() %>%
-  #     datatable() %>%
-  #   formatRound(c(2:ncol(norm_wide_tbl_bile_acid())), 3) %>%
-  #   formatStyle(columns = c(2:ncol(norm_wide_tbl_bile_acid())), 'text-align' = 'center')
-  # )
-  # 
-  # 
-  # norm_wide_tbl_label_bile_acid <- reactive({
-  #   if(input$qcfil_bile_acid==F){
-  #     return("normalized_results_")
-  #   } else {
-  #     return("removed_qcs_normalized_results_")
-  #   }
-  # })
-  # 
-  # #download handler
-  # output$downloadData_bile_acid <- downloadHandler(
-  #   
-  #   filename = function(){
-  #     paste0(norm_wide_tbl_label_bile_acid(),input$filename,"_",Sys.Date(),".csv")
-  #   },
-  #   
-  #   content = function(file) {
-  #     write.csv(norm_wide_tbl_bile_acid(),file,
-  #               row.names=F,quote=F)
-  #   }
-  # )
-  # 
-  # 
+
+  #make boxplots:
+  raw_boxplots_bile_acid <- reactive({
+
+    rawdf_ba() %>%
+      filter(is.na(itsd)) %>%
+      replace_na(list(itsd="not itsd")) %>%
+      ggplot(aes(y=compound_name,x=peakarea)) +
+      geom_boxplot(outlier.shape = NA) +
+      geom_jitter(width=0.1,height=0.1,alpha=0.3) +
+      theme_bw() +
+      theme(strip.text.x=element_text(size=15),
+            axis.text.y=element_text(size=13)) +
+      ylab("") +
+      xlab("peak area") +
+      facet_grid(itsd ~ conc,scales="free_y",space="free") +
+      scale_x_continuous(trans=log_epsilon_trans(epsilon=1000))
+
+  })
+
+  output$raw_boxplots_bile_acid <- renderPlot(
+    raw_boxplots_bile_acid()
+  )
+
+  #make heatmap:
+  heatmap_plot_bile_acid <- function()({
+    rawdf_ba() %>%
+      left_join(conc_filter_bile_acid()) %>%
+      replace_na(list(checked="concentrated")) %>%
+      filter(conc==checked, is.na(itsd),
+             !grepl("(CC[0-9]+)", sampleid)) %>%
+      select(-checked) %>%
+      left_join(conc_int_bile_acid()) %>%
+      mutate(norm_peak = ifelse(is.finite(log((peakarea / avg), base = 2)),
+                                log((peakarea / avg), base = 2),
+                                (min_peak * -20))) %>%
+      separate(Data.File,into=c("num","date","batch","sampleid","conc"),
+               sep="__") %>%
+      mutate(sampleid = ifelse(sampleid %in%
+                                 c("PooledQC",
+                                   "Pooled_QC",
+                                   "SpikedPooledQC",
+                                   "Standards",
+                                   "BHIQC_1",
+                                   "BHIQC_2",
+                                   "MB",
+                                   "MB_1",
+                                   "MB_2",
+                                   "PlasmaQC",
+                                   "Plasma_QC",
+                                   "Plasma1",
+                                   "Plasma2",
+                                   "Plasma3",
+                                   "Hexanes"),
+                               paste(num, sampleid, conc, sep = "__"),
+                               sampleid)) %>%
+      mutate(sampleid = gsub(pattern = "X", replacement = "", sampleid)) %>%
+      dplyr::select(num, date, batch, sampleid, conc, compound_name, norm_peak) %>%
+      ungroup() %>%
+      add_count(date,batch,sampleid, compound_name, conc) %>%
+      mutate(sampleid = ifelse(n > 1, paste(num, sampleid, sep = "__"), sampleid),
+             sampleid = gsub(pattern = "X", replacement = "", sampleid)) %>%
+      dplyr::select(sampleid, compound_name, norm_peak) %>%
+      pivot_wider(names_from = compound_name, values_from = norm_peak, values_fill = NA) %>%
+      filter(!str_detect(sampleid, "MB"),
+             !str_detect(sampleid, "Pooled"),
+             !str_detect(sampleid, "BHIQC"),
+             !str_detect(sampleid, "Plasma"),
+             !str_detect(sampleid, "Hexanes"),
+             !str_detect(sampleid, "Standards")) %>%
+      drop_na(.) %>%
+      column_to_rownames(., var = "sampleid") %>%
+      as.matrix(.) %>%
+      t(.) %>%
+      pheatmap(., scale = "none",
+               cellheight = nrow(heatmap_data_bile_acid()) / (nrow(heatmap_data_bile_acid())*0.075),
+               cellwidth = ncol(heatmap_data_bile_acid()) / (ncol(heatmap_data_bile_acid())*0.0825)+1.5,
+               angle_col = "90",
+               color=colorRampPalette(c("navy", "white", "red"))(50),
+      )
+  })
+
+  output$heatmap_plot_bile_acid <- renderPlot(
+    heatmap_plot_bile_acid()
+  )
+
+  heatmap_data_bile_acid <- function()({
+    rawdf_ba() %>%
+      left_join(conc_filter_bile_acid()) %>%
+      replace_na(list(checked="concentrated")) %>%
+      filter(conc==checked, is.na(itsd),
+             !grepl("(CC[0-9]+)", sampleid)) %>%
+      select(-checked) %>%
+      left_join(conc_int_bile_acid()) %>%
+      mutate(norm_peak = ifelse(is.finite(log((peakarea / avg), base = 2)),
+                                log((peakarea / avg), base = 2),
+                                (min_peak * -20))) %>%
+      separate(Data.File,into=c("num","date","batch","sampleid","conc"),
+               sep="__") %>%
+      mutate(sampleid = ifelse(sampleid %in%
+                                 c("PooledQC",
+                                   "Pooled_QC",
+                                   "SpikedPooledQC",
+                                   "Standards",
+                                   "BHIQC_1",
+                                   "BHIQC_2",
+                                   "MB",
+                                   "MB_1",
+                                   "MB_2",
+                                   "PlasmaQC",
+                                   "Plasma_QC",
+                                   "Plasma1",
+                                   "Plasma2",
+                                   "Plasma3",
+                                   "Hexanes"),
+                               paste(num, sampleid, conc, sep = "__"),
+                               sampleid)) %>%
+      mutate(sampleid = gsub(pattern = "X", replacement = "", sampleid)) %>%
+      dplyr::select(num, date, batch, sampleid, conc, compound_name, norm_peak) %>%
+      ungroup() %>%
+      add_count(date,batch,sampleid, compound_name, conc) %>%
+      mutate(sampleid = ifelse(n > 1, paste(num, sampleid,sep = "__"), sampleid),
+             sampleid = gsub(pattern = "X", replacement = "", sampleid)) %>%
+      dplyr::select(sampleid, compound_name, norm_peak) %>%
+      pivot_wider(names_from = compound_name, values_from = norm_peak, values_fill = NA) %>%
+      filter(!str_detect(sampleid, "MB"),
+             !str_detect(sampleid, "Pooled"),
+             !str_detect(sampleid, "BHIQC"),
+             !str_detect(sampleid, "Plasma"),
+             !str_detect(sampleid, "Hexanes"),
+             !str_detect(sampleid, "Standards")) %>%
+    drop_na(.) %>%
+      column_to_rownames(., var = "sampleid") %>%
+      as.matrix(.) %>%
+      t(.)
+  })
+
+  output$heatmap_download_bile_acid <- downloadHandler(
+    filename = function(){
+      paste0("normalized_heatmap_",input$filename,"_",Sys.Date(),".pdf")
+    },
+    content = function(file) {
+      pdf(file,
+          height = nrow(heatmap_data_bile_acid()) / (nrow(heatmap_data_bile_acid())*0.075),
+          width = (ncol(heatmap_data_bile_acid()) / (ncol(heatmap_data_bile_acid())*0.07))+1.5
+      )
+      heatmap_plot_bile_acid()
+      dev.off()
+    },
+    contentType = 'PDF'
+  )
+
+
+  # Intermediate table
+  conc_filter_bile_acid <- reactive({
+
+    if(length(as.list(input$check_compounds_bile_acid)) > 0){
+
+      leftovervars_ba <- csv_ba()[ !(csv_ba() %in% input$check_compounds_bile_acid) ]
+
+      tibble(checked = rep("diluted", length(input$check_compounds_bile_acid)),
+             compound_name = input$check_compounds_bile_acid) %>%
+        bind_rows(tibble(checked = rep("concentrated", length(leftovervars_ba)),
+                         compound_name = leftovervars_ba)
+        )
+    }else{
+
+      tibble(checked = "concentrated",
+             compound_name = csv_ba())
+    }
+  })
+
+  #subset based on checkboxes.. make a dataframe of compounds in same order as checkboxes with input as a column
+  subset_conc_bile_acid <- reactive({
+    rawdf_ba() %>%
+      left_join(conc_filter_bile_acid()) %>%
+      replace_na(list(checked="concentrated")) %>%
+      filter(conc==checked) %>%
+      select(-checked) %>%
+      left_join(conc_int_bile_acid()) %>%
+      mutate(norm_peak = peakarea / avg)
+  })
+
+  output$conc_filter_bile_acid <- renderDataTable(
+    subset_conc_bile_acid() %>%
+      datatable() %>%
+      formatRound(c("norm_peak"), 3) %>%
+      formatStyle(columns = c("norm_peak"), 'text-align' = 'center')
+  )
+
+  #download table
+  #make wide table
+  norm_wide_tbl_bile_acid <- reactive({
+
+    if(input$qcfil_bile_acid==F){
+      rawdf_ba() %>%
+        left_join(conc_filter_bile_acid()) %>%
+        replace_na(list(checked="concentrated")) %>%
+        filter(conc==checked, is.na(itsd),
+               !grepl("(CC[0-9]+)", sampleid)) %>%
+        select(-checked) %>%
+        left_join(conc_int_bile_acid()) %>%
+        mutate(norm_peak = peakarea / avg) %>%
+        separate(Data.File,into=c("num","date","batch","sampleid","conc"),
+                 sep="__") %>%
+        mutate(sampleid = ifelse(sampleid %in%
+                                   c("PooledQC",
+                                     "Pooled_QC",
+                                     "SpikedPooledQC",
+                                     "Standards",
+                                     "BHIQC_1",
+                                     "BHIQC_2",
+                                     "MB",
+                                     "MB_1",
+                                     "MB_2",
+                                     "PlasmaQC",
+                                     "Plasma_QC",
+                                     "Plasma1",
+                                     "Plasma2",
+                                     "Plasma3",
+                                     "Hexanes"),
+                                 paste(num, sampleid, conc, sep = "__"),
+                                 sampleid)) %>%
+        mutate(sampleid = gsub(pattern = "X", replacement = "", sampleid)) %>%
+        dplyr::select(num, date, batch, sampleid, conc, compound_name, norm_peak) %>%
+        ungroup() %>%
+        add_count(date,batch,sampleid, compound_name, conc) %>%
+        mutate(sampleid = ifelse(n > 1, paste(num, sampleid, sep = "__"), sampleid),
+               sampleid = gsub(pattern = "X", replacement = "", sampleid)) %>%
+        dplyr::select(sampleid, compound_name, norm_peak) %>%
+        pivot_wider(names_from = compound_name, values_from = norm_peak, values_fill = NA)
+    }else{
+      rawdf_ba() %>%
+        left_join(conc_filter_bile_acid()) %>%
+        replace_na(list(checked="concentrated")) %>%
+        filter(conc==checked, is.na(itsd),
+               !grepl("(CC[0-9]+)", sampleid)) %>%
+        select(-checked) %>%
+        left_join(conc_int_bile_acid()) %>%
+        mutate(norm_peak = peakarea / avg) %>%
+        separate(Data.File,into=c("num","date","batch","sampleid","conc"),
+                 sep="__") %>%
+        mutate(sampleid = ifelse(sampleid %in%
+                                   c("PooledQC",
+                                     "Pooled_QC",
+                                     "SpikedPooledQC",
+                                     "Standards",
+                                     "BHIQC_1",
+                                     "BHIQC_2",
+                                     "MB",
+                                     "MB_1",
+                                     "MB_2",
+                                     "PlasmaQC",
+                                     "Plasma_QC",
+                                     "Plasma1",
+                                     "Plasma2",
+                                     "Plasma3",
+                                     "Hexanes"),
+                                 paste(num, sampleid, conc, sep = "__"),
+                                 sampleid)) %>%
+        mutate(sampleid = gsub(pattern = "X", replacement = "", sampleid)) %>%
+        dplyr::select(num, date, batch, sampleid, conc, compound_name, norm_peak) %>%
+        ungroup() %>%
+        add_count(date,batch,sampleid, compound_name, conc) %>%
+        mutate(sampleid = ifelse(n > 1, paste(num, sampleid, sep = "__"), sampleid),
+               sampleid = gsub(pattern = "X", replacement = "", sampleid)) %>%
+        dplyr::select(sampleid, compound_name, norm_peak) %>%
+        pivot_wider(names_from = compound_name, values_from = norm_peak, values_fill = NA) %>%
+        filter(!str_detect(sampleid, "MB"),
+               !str_detect(sampleid, "Pooled"),
+               !str_detect(sampleid, "BHIQC"),
+               !str_detect(sampleid, "Plasma"),
+               !str_detect(sampleid, "Hexanes"),
+               !str_detect(sampleid, "Standards"))
+    }
+  })
+
+  output$normwide_bile_acid <- renderDataTable(
+    norm_wide_tbl_bile_acid() %>%
+      datatable() %>%
+    formatRound(c(2:ncol(norm_wide_tbl_bile_acid())), 3) %>%
+    formatStyle(columns = c(2:ncol(norm_wide_tbl_bile_acid())), 'text-align' = 'center')
+  )
+
+
+  norm_wide_tbl_label_bile_acid <- reactive({
+    if(input$qcfil_bile_acid==F){
+      return("normalized_results_")
+    } else {
+      return("removed_qcs_normalized_results_")
+    }
+  })
+
+  #download handler
+  output$downloadData_bile_acid <- downloadHandler(
+
+    filename = function(){
+      paste0(norm_wide_tbl_label_bile_acid(),input$filename,"_",Sys.Date(),".csv")
+    },
+
+    content = function(file) {
+      write.csv(norm_wide_tbl_bile_acid(),file,
+                row.names=F,quote=F)
+    }
+  )
+
+
   # # TMS normalization tab -------------------------------------------------------
   # 
-  # rawdf <- reactive({ 
-  #   readin_meta_csv_single_file(file.path(wddir,input$filename),na.value = input$zero_val_tms) 
+  # rawdf <- reactive({
+  #   readin_meta_csv_single_file(file.path(wddir,input$filename),na.value = input$zero_val_tms)
   # })
   # 
   # csv <- reactive({
-  #   
+  # 
   #   vars <- rawdf() %>%
   #     mutate(compound_name=as.character(compound_name)) %>%
   #     arrange(desc(compound_name)) %>%
   #     filter(is.na(itsd)) %>%
   #     distinct(compound_name) %>%
   #     `$`(compound_name)
-  #   
+  # 
   #   return(vars)
   # })
   # 
@@ -2503,16 +2466,16 @@ server <- function(input, output, session) {
   #                      inline=F)
   # })
   # 
-  # conc_int <- reactive({
-  #   
-  #   make_norm_conc_tbl_tms(rawdf(), 
-  #                          compounds = as.character(input$compounds))
+  # conc_int_tms <- reactive({
+  # 
+  #   make_norm_conc_tbl(rawdf(), conc_compounds = "", #Grab Itsd
+  #                           conc_compounds = as.character(input$itsd_compounds))
   # })
   # 
-  # conc_int_heatmap <- reactive({
-  #   
-  #   make_norm_conc_heatmap_tms(rawdf(), 
-  #                              compounds = as.character(input$compounds))
+  # conc_int_heatmap_tms <- reactive({
+  # 
+  #   make_norm_conc_heatmap(rawdf(),
+  #                              conc_compounds = as.character(input$itsd_compounds))
   # })
   # 
   # # output$conc_int_tms <- renderDataTable(
@@ -2521,7 +2484,7 @@ server <- function(input, output, session) {
   # 
   # #make boxplots:
   # raw_boxplots_tms <- reactive({
-  #   
+  # 
   #   rawdf() %>%
   #     filter(is.na(itsd)) %>%
   #     replace_na(list(itsd="not itsd")) %>%
@@ -2535,7 +2498,7 @@ server <- function(input, output, session) {
   #     xlab("peak area") +
   #     facet_grid(itsd ~ conc,scales="free_y",space="free") +
   #     scale_x_continuous(trans=log_epsilon_trans(epsilon=1000))
-  #   
+  # 
   # })
   # 
   # output$raw_boxplots_tms <- renderPlot(
@@ -2551,7 +2514,7 @@ server <- function(input, output, session) {
   #            !grepl("(__CC[0-9]+__)", sampleid)) %>%
   #     select(-checked) %>%
   #     left_join(conc_int_tms()) %>%
-  #     left_join(conc_int_heatmap_tms()) %>% 
+  #     left_join(conc_int_heatmap_tms()) %>%
   #     mutate(norm_peak = ifelse(is.finite(log((peakarea / avg), base = 2)),
   #                               log((peakarea / avg), base = 2),
   #                               (min_peak/10))) %>%
@@ -2562,19 +2525,19 @@ server <- function(input, output, session) {
   #     separate(sampleid,into=c("num","date","batch","sampleid","conc"),
   #              sep="\\_\\_") %>%
   #     filter(!is.na(norm_peak)) %>%
-  #     mutate(sampleid = ifelse(sampleid %in% 
+  #     mutate(sampleid = ifelse(sampleid %in%
   #                                c("PooledQC",
   #                                  "Pooled_QC",
-  #                                  "BHIQC_1", 
-  #                                  "BHIQC_2", 
-  #                                  "MB", 
-  #                                  "MB_1", 
+  #                                  "BHIQC_1",
+  #                                  "BHIQC_2",
+  #                                  "MB",
+  #                                  "MB_1",
   #                                  "MB_2",
   #                                  "PlasmaQC",
   #                                  "Plasma_QC",
-  #                                  "Hexanes"), 
-  #                              paste(num, sampleid, conc, sep = "__"), 
-  #                              sampleid)) %>% 
+  #                                  "Hexanes"),
+  #                              paste(num, sampleid, conc, sep = "__"),
+  #                              sampleid)) %>%
   #     filter(!str_detect(sampleid, "MB"),
   #            !str_detect(sampleid, "Pooled"),
   #            !str_detect(sampleid, "BHIQC"),
@@ -2585,18 +2548,18 @@ server <- function(input, output, session) {
   #     mutate(norm_peak = round(norm_peak,5)) %>%
   #     group_by(sampleid, compound_name) %>%
   #     summarise(norm_peak = mean(norm_peak)) %>%
-  #     pivot_wider(names_from = compound_name, values_from = norm_peak) %>% 
-  #     # filter_all(all_vars(!is.infinite(.))) %>% 
+  #     pivot_wider(names_from = compound_name, values_from = norm_peak) %>%
+  #     # filter_all(all_vars(!is.infinite(.))) %>%
   #     drop_na(.) %>%
-  #     column_to_rownames(., var = "sampleid") %>% 
+  #     column_to_rownames(., var = "sampleid") %>%
   #     as.matrix(.) %>%
-  #     t(.) %>% 
+  #     t(.) %>%
   #     pheatmap(., scale = "none",
   #              cellheight = nrow(heatmap_data_tms()) / (nrow(heatmap_data_tms())*0.075),
   #              cellwidth = ncol(heatmap_data_tms()) / (ncol(heatmap_data_tms())*0.0825)+1.5,
   #              angle_col = "90",
   #              color=colorRampPalette(c("navy", "white", "red"))(50),
-  #     ) 
+  #     )
   # })
   # 
   # output$heatmap_plot_tms <- renderPlot(
@@ -2609,7 +2572,7 @@ server <- function(input, output, session) {
   #     filter(conc==checked, is.na(itsd),
   #            !grepl("(__CC[0-9]+__)", sampleid)) %>%
   #     left_join(conc_int_tms()) %>%
-  #     left_join(conc_int_heatmap_tms()) %>% 
+  #     left_join(conc_int_heatmap_tms()) %>%
   #     mutate(norm_peak = ifelse(is.finite(log((peakarea / avg), base = 2)),
   #                               log((peakarea / avg), base = 2),
   #                               (min_peak * -20))) %>%
@@ -2620,27 +2583,27 @@ server <- function(input, output, session) {
   #     separate(sampleid,into=c("num","date","batch","sampleid","conc"),
   #              sep="\\_\\_") %>%
   #     filter(!is.na(norm_peak)) %>%
-  #     mutate(sampleid = ifelse(sampleid %in% 
+  #     mutate(sampleid = ifelse(sampleid %in%
   #                                c("PooledQC",
   #                                  "Pooled_QC",
-  #                                  "BHIQC_1", 
-  #                                  "BHIQC_2", 
-  #                                  "MB", 
-  #                                  "MB_1", 
+  #                                  "BHIQC_1",
+  #                                  "BHIQC_2",
+  #                                  "MB",
+  #                                  "MB_1",
   #                                  "MB_2",
   #                                  "PlasmaQC",
   #                                  "Plasma_QC",
-  #                                  "Hexanes"), 
-  #                              paste(num, sampleid, conc, sep = "__"), 
-  #                              sampleid)) %>% 
+  #                                  "Hexanes"),
+  #                              paste(num, sampleid, conc, sep = "__"),
+  #                              sampleid)) %>%
   #     dplyr::select(sampleid, compound_name, norm_peak) %>%
   #     mutate(norm_peak = round(norm_peak,5)) %>%
   #     group_by(sampleid, compound_name) %>%
   #     summarise(norm_peak = mean(norm_peak)) %>%
-  #     pivot_wider(names_from = compound_name, values_from = norm_peak) %>% 
-  #     # filter_all(all_vars(!is.infinite(.))) %>% 
+  #     pivot_wider(names_from = compound_name, values_from = norm_peak) %>%
+  #     # filter_all(all_vars(!is.infinite(.))) %>%
   #     drop_na(.) %>%
-  #     column_to_rownames(., var = "sampleid") %>% 
+  #     column_to_rownames(., var = "sampleid") %>%
   #     as.matrix(.) %>%
   #     t(.)
   # })
@@ -2650,7 +2613,7 @@ server <- function(input, output, session) {
   #     paste0("normalized_heatmap_",input$filename,"_",Sys.Date(),".pdf")
   #   },
   #   content = function(file) {
-  #     pdf(file, 
+  #     pdf(file,
   #         height = nrow(heatmap_data_tms()) / (nrow(heatmap_data_tms())*0.075),
   #         width = (ncol(heatmap_data_tms()) / (ncol(heatmap_data_tms())*0.07))+1.5
   #     )
@@ -2668,51 +2631,44 @@ server <- function(input, output, session) {
   #   # cat(input$check_compounds)
   #   # print(length(input$check_compounds))
   #   # print(length(as.list(input$check_compounds)))
-  #   
+  # 
   #   if(length(as.list(input$check_compounds)) > 0){
   #     # print("if")
-  #     
+  # 
   #     leftovervars <- csv()[ !(csv() %in% input$check_compounds) ]
-  #     
+  # 
   #     tibble(checked = rep("diluted", length(input$check_compounds)),
   #            compound_name = input$check_compounds) %>%
   #       bind_rows(tibble(checked = rep("concentrated", length(leftovervars)),
   #                        compound_name = leftovervars)
   #       )
   #   }else{
-  #     
+  # 
   #     # print("else")
   #     tibble(checked = "concentrated",
-  #            compound_name = csv()) 
+  #            compound_name = csv())
   #   }
   # })
   # 
   # subset_conc_tms <- reactive({
-  #   rawdf()
-  #   
-  #   #is 33 rows when should be 66.. the conc averages aren't being included !
-  #   #print(conc_int())
-  #   
   #   rawdf() %>%
-  #     left_join(conc_filter_tms()) %>%
-  #     replace_na(list(checked="concentrated")) %>%
-  #     filter(conc==checked) %>%
-  #     select(-checked) %>%
+  #     select(-conc) %>%
   #     left_join(conc_int_tms()) %>%
   #     mutate(norm_peak=peakarea / avg)
   # })
   # 
+  # 
   # output$conc_filter_tms <- renderDataTable(
   #   subset_conc_tms() %>%
   #     datatable() %>%
-  #     formatRound(c("norm_peak"), 3) %>% 
+  #     formatRound(c("norm_peak"), 3) %>%
   #     formatStyle(columns = c("norm_peak"), 'text-align' = 'center')
   # )
   # 
   # #download table
-  # #make wide table 
+  # #make wide table
   # norm_wide_tbl_tms <- reactive({
-  #   
+  # 
   #   if(input$qcfil_tms==F){
   #     rawdf() %>%
   #       left_join(conc_filter_tms()) %>%
@@ -2798,7 +2754,7 @@ server <- function(input, output, session) {
   # output$normwide <- renderDataTable(
   #   norm_wide_tbl() %>%
   #     datatable() %>%
-  #     formatRound(c(2:ncol(norm_wide_tbl())), 3) %>% 
+  #     formatRound(c(2:ncol(norm_wide_tbl())), 3) %>%
   #     formatStyle(columns = c(2:ncol(norm_wide_tbl())), 'text-align' = 'center')
   # )
   # 
@@ -2808,22 +2764,22 @@ server <- function(input, output, session) {
   #     return("normalized_results_")
   #   } else {
   #     return("removed_qcs_normalized_results_")
-  #   } 
+  #   }
   # })
   # 
   # #download handler
   # output$downloadData2 <- downloadHandler(
-  #   
+  # 
   #   filename = function(){
   #     paste0(norm_wide_tbl_label(),input$filename,"_",Sys.Date(),".csv")
   #   },
-  #   
+  # 
   #   content = function(file) {
   #     write.csv(norm_wide_tbl(),file,
   #               row.names=F,quote=F)
   #   }
   # )
-  # 
+
 }
 
 # run app -----------------------------------------------------------------
