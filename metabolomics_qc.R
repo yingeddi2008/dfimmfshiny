@@ -326,7 +326,7 @@ wddir <- "/Volumes/chaubard-lab/shiny_workspace/csvs/"
 
 ui <- fluidPage(
   # shinythemes::themeSelector(),
-  titlePanel("DFI Metabolomics QC (v1.7.4)"),
+  titlePanel("DFI Metabolomics QC (v1.7.5)"),
   br(),
   
   # CSV file selector -------------------------------------------------------
@@ -467,6 +467,11 @@ ui <- fluidPage(
                            splitLayout(#cellWidths = c("25%","75%"),
                              # uiOutput("compound_list2"),
                              plotOutput("raw_boxplots2",height="750px")),
+                           h4("Normalized heatmap"),
+                           downloadButton("heatmap_download2", "Download Indole Heatmap"),
+                           plotOutput("heatmap_plot2",
+                                      height = "1000px",
+                                      width = "125%"),
                            h4("Intermediate table:"),
                            #dataTableOutput("conc_int2"),
                            dataTableOutput("conc_filter2"),
@@ -1594,6 +1599,100 @@ server <- function(input, output, session) {
     raw_boxplots2()
   )
   
+  #make heatmap:
+  heatmap_plot2 <- function()({
+    rawdf() %>%
+      mutate(Data.File=as.character(Data.File)) %>%
+      filter(#conc==checked,
+        is.na(itsd),
+        !grepl("[Cc][Cc][0-9]+", Data.File)) %>%
+      left_join(conc_int2()) %>%
+      mutate(norm_peak = ifelse(is.finite(log((peakarea / avg), base = 2)),
+                                log((peakarea / avg), base = 2),
+                                (min_peak * -20)),
+             compound_name=gsub("\\_[0-9]+","",compound_name)) %>%
+      separate(Data.File,into=c("num","date","batch","sampleid","conc"),
+               sep="__") %>%
+      dplyr::select(num, date, batch, sampleid, conc, compound_name, norm_peak) %>%
+      ungroup() %>%
+      add_count(date,batch,sampleid, compound_name, conc) %>%
+      mutate(sampleid = ifelse(n > 1, paste(num, sampleid, sep = "__"), sampleid),
+             sampleid = gsub(pattern = "X", replacement = "", sampleid)) %>%
+      dplyr::select(sampleid, compound_name, norm_peak) %>%
+      pivot_wider(names_from = compound_name, values_from = norm_peak, values_fill = NA) %>%
+      filter(!str_detect(sampleid, "MB"),
+             !str_detect(sampleid, "Pooled"),
+             !str_detect(sampleid, "BHIQC"),
+             !str_detect(sampleid, "Plasma"),
+             !str_detect(sampleid, "plasma"),
+             !str_detect(sampleid, "Hexanes"),
+             !str_detect(sampleid, "Standards")) %>% 
+      drop_na(.) %>%
+      column_to_rownames(., var = "sampleid") %>%
+      as.matrix(.) %>%
+      t(.) %>%
+      pheatmap(., scale = "none",
+               cellheight = nrow(heatmap_data2()) / (nrow(heatmap_data2())*0.075),
+               cellwidth = ncol(heatmap_data2()) / (ncol(heatmap_data2())*0.0825)+1.5,
+               angle_col = "90",
+               color=colorRampPalette(c("navy", "white", "red"))(50),
+      )
+  })
+  
+  output$heatmap_plot2<- renderPlot(
+    heatmap_plot2()
+  )
+  
+  heatmap_data2 <- function()({
+    rawdf() %>%
+      mutate(Data.File=as.character(Data.File)) %>%
+      filter(#conc==checked,
+        is.na(itsd),
+        !grepl("[Cc][Cc][0-9]+", Data.File)) %>%
+      left_join(conc_int2()) %>%
+      mutate(norm_peak = ifelse(is.finite(log((peakarea / avg), base = 2)),
+                                log((peakarea / avg), base = 2),
+                                (min_peak * -20)),
+             compound_name=gsub("\\_[0-9]+","",compound_name)) %>%
+      separate(Data.File,into=c("num","date","batch","sampleid","conc"),
+               sep="__") %>%
+      dplyr::select(num, date, batch, sampleid, conc, compound_name, norm_peak) %>%
+      ungroup() %>%
+      add_count(date,batch,sampleid, compound_name, conc) %>%
+      mutate(sampleid = ifelse(n > 1, paste(num, sampleid, sep = "__"), sampleid),
+             sampleid = gsub(pattern = "X", replacement = "", sampleid)) %>%
+      dplyr::select(sampleid, compound_name, norm_peak) %>%
+      pivot_wider(names_from = compound_name, values_from = norm_peak, values_fill = NA) %>%
+      filter(!str_detect(sampleid, "MB"),
+             !str_detect(sampleid, "Pooled"),
+             !str_detect(sampleid, "BHIQC"),
+             !str_detect(sampleid, "Plasma"),
+             !str_detect(sampleid, "plasma"),
+             !str_detect(sampleid, "Hexanes"),
+             !str_detect(sampleid, "Standards")) %>% 
+      drop_na(.) %>%
+      column_to_rownames(., var = "sampleid") %>%
+      as.matrix(.) %>%
+      t(.)
+  })
+  
+  output$heatmap_download2 <- downloadHandler(
+    filename = function(){
+      paste0("normalized_heatmap_",input$filename,"_",Sys.Date(),".pdf")
+    },
+    content = function(file) {
+      pdf(file,
+          height = nrow(heatmap_data2()) / (nrow(heatmap_data2())*0.075),
+          width = (ncol(heatmap_data2()) / (ncol(heatmap_data2())*0.07))+1.5
+      )
+      heatmap_plot2()
+      dev.off()
+    },
+    contentType = 'PDF'
+  )
+  
+  
+  
   #subset based on checkboxes.. make a dataframe of compounds in same order as checkboxes with input as a column
   # conc_filter2 <- reactive({
   #   # print(input$check_compounds)
@@ -1643,7 +1742,7 @@ server <- function(input, output, session) {
   
   #download table
   #make wide table 
-  norm_wide_tbl2 <- reactive({
+  normwide2 <- reactive({
     
     if(input$qcfil2==F){
       
@@ -1661,6 +1760,28 @@ server <- function(input, output, session) {
         dplyr::rename(compound_name=variable,norm_peak=value) %>%
         separate(Data.File,into=c("num","date","batch","sampleid","conc"),
                  sep="\\_\\_") %>%
+        mutate(sampleid = ifelse(sampleid %in%
+                                   c("PooledQC",
+                                     "Pooled_QC",
+                                     "SpikedPooledQC",
+                                     "Standards",
+                                     "BHIQC_1",
+                                     "BHIQC_2",
+                                     "MB",
+                                     "MB_1",
+                                     "MB_2",
+                                     "PlasmaQC",
+                                     "Plasma_QC",
+                                     "Plasma1",
+                                     "Plasma2",
+                                     "Plasma3",
+                                     "plasmaqc1",
+                                     "plasmaqc2",
+                                     "plasmaqc3",
+                                     "Hexanes"),
+                                 paste(num, sampleid, conc, sep = "__"),
+                                 sampleid)) %>% 
+        mutate(sampleid = gsub(pattern = "conc.d", replacement = "conc", sampleid)) %>%
         dplyr::select(num,sampleid, compound_name, norm_peak) %>%
         mutate(norm_peak = round(norm_peak,5),
                compound_name=gsub("\\_[0-9]+","",compound_name)) %>%
@@ -1688,28 +1809,41 @@ server <- function(input, output, session) {
         reshape2::dcast(num+sampleid ~ compound_name,value.var="norm_peak",fun.aggregate=mean) %>%
         arrange(num) %>%
         select(-num) %>%
-        filter(sampleid %!in% c("MB_1","MB_2",
-                                "BHIQC_1","BHI_QC_2",
-                                "PooledQC","PooledQC2"))
+        filter(!str_detect(sampleid, "MB"),
+               !str_detect(sampleid, "Pooled"),
+               !str_detect(sampleid, "BHIQC"),
+               !str_detect(sampleid, "Plasma"),
+               !str_detect(sampleid, "plasma"),
+               !str_detect(sampleid, "Hexanes"),
+               !str_detect(sampleid, "Standards"))
     }
   })
   
   output$normwide2 <- renderDataTable(
-    norm_wide_tbl2() %>%
+    normwide2() %>%
       datatable() %>%
-      formatRound(c(2:ncol(norm_wide_tbl2())), 3) %>% 
-      formatStyle(columns = c(2:ncol(norm_wide_tbl2())), 'text-align' = 'center')
+      formatRound(c(2:ncol(normwide2())), 3) %>%
+      formatStyle(columns = c(2:ncol(normwide2())), 'text-align' = 'center')
   )
+  
+  
+  normwide2_label <- reactive({
+    if(input$qcfil2==F){
+      return("normalized_results_")
+    } else {
+      return("removed_qcs_normalized_results_")
+    }
+  })
   
   #download handler
   output$downloadData4 <- downloadHandler(
     
     filename = function(){
-      paste0("normalized_results_",input$filename,"_",Sys.Date(),".csv")
+      paste0(normwide2_label(),input$filename,"_",Sys.Date(),".csv")
     },
     
     content = function(file) {
-      write.csv(norm_wide_tbl2(),file,
+      write.csv(normwide2(),file,
                 row.names=F,quote=F)
     }
   )
