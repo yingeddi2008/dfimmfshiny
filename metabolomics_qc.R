@@ -10,6 +10,7 @@ library(yingtools2)
 library(scales)
 library(pheatmap)
 library(ggsci)
+library(zoo)
 
 setwd("/Volumes/chaubard-lab/shiny_workspace/csvs/")
 
@@ -214,7 +215,8 @@ make_norm_conc_tbl <- function(df,
     # dplyr::count(compound_name, conc) %>%
     # dplyr::count(sampleid) %>%
     group_by(sampleid) %>%
-    summarize(avg=mean(peakarea))
+    summarize(avg=mean(peakarea),
+              med=median(peakarea))
   
   return(int_conc)
   
@@ -326,7 +328,7 @@ wddir <- "/Volumes/chaubard-lab/shiny_workspace/csvs/"
 
 ui <- fluidPage(
   # shinythemes::themeSelector(),
-  titlePanel("DFI Metabolomics QC (v1.7.5)"),
+  titlePanel("DFI Metabolomics QC (v1.7.6)"),
   br(),
   
   # CSV file selector -------------------------------------------------------
@@ -488,7 +490,7 @@ ui <- fluidPage(
                        sidebarLayout(
                          sidebarPanel(width = 3,
                                       textInput("compounds5","Enter ITSD compounds (comma separated):",
-                                                value="Cholic acid,Deoxycholic acid,Glycocholic Acid,Glycodeoxycholic acid,Lithocholic acid,Taurocholic acid,Taurodeoxycholic acid,Alpha-Muricholic Acid"),
+                                                value="Cholic Acid,Deoxycholic Acid,Lithocholic Acid,Glycocholic Acid,Taurocholic Acid,Isodeoxycholic Acid,Alloisolithocholic Acid,3-Oxolithocholic Acid"),
                                       br(),
                                       textInput("quant_conc5","Quant con/dil:",
                                                 value="dil,dil,dil,dil,dil,dil,dil,dil"),
@@ -1058,8 +1060,8 @@ server <- function(input, output, session) {
       select(-checked) %>%
       left_join(conc_int()) %>%
       left_join(conc_int_heatmap()) %>% 
-      mutate(norm_peak = ifelse(is.finite(log((peakarea / avg), base = 2)),
-                                log((peakarea / avg), base = 2),
+      mutate(norm_peak = ifelse(is.finite(log((peakarea / med), base = 2)),
+                                log((peakarea / med), base = 2),
                                 (min_peak/10))) %>%
       dplyr::select(sampleid, compound_name, norm_peak) %>%
       spread(compound_name, norm_peak, fill = NA) %>%
@@ -1116,8 +1118,8 @@ server <- function(input, output, session) {
              !grepl("(__CC[0-9]+__)", sampleid)) %>%
       left_join(conc_int()) %>%
       left_join(conc_int_heatmap()) %>% 
-      mutate(norm_peak = ifelse(is.finite(log((peakarea / avg), base = 2)),
-                                log((peakarea / avg), base = 2),
+      mutate(norm_peak = ifelse(is.finite(log((peakarea / med), base = 2)),
+                                log((peakarea / med), base = 2),
                                 (min_peak * -20))) %>%
       dplyr::select(sampleid, compound_name, norm_peak) %>%
       spread(compound_name, norm_peak, fill = NA) %>%
@@ -1914,12 +1916,12 @@ server <- function(input, output, session) {
       inner_join(quant_conc_tbl5()) %>%
       mutate(compound_name=factor(compound_name,levels=compounds)) %>%
       replace_na(list(itsd="peak")) %>%
-      reshape2::dcast(sampleid+compound_name+conc ~ itsd,value.var="peakarea",
+      reshape2::dcast(sampleid+compound_name+conc+letter ~ itsd,value.var="peakarea",
                       fun.aggregate=mean) %>%
-      mutate(norm_peak = peak / ITSD) %>%
-      # mutate(#peak = ifelse(peak <= 10000,0,peak),
-      #         norm_peak = peak / ITSD) %>%
-      mutate(curveLab=str_extract(sampleid,pattern="CC[1-9][0-9]+|CC[1-9]+")) %>%
+      group_by(sampleid, letter) %>% 
+      mutate(ITSD=zoo::na.locf(ITSD),
+             norm_peak = peak / ITSD,
+             curveLab=str_extract(sampleid,pattern="CC[1-9][0-9]+|CC[1-9]+")) %>%
       inner_join(conc_tbl5()) %>%
       left_join(cutoff_df5()) %>%
       filter(conc_val <= maxcc,
@@ -1933,9 +1935,9 @@ server <- function(input, output, session) {
   
   output$model5 <- renderDataTable(
     modelstart5() %>%
-      datatable() %>%
-      formatRound(c(2:4), 3) %>% 
-      formatStyle(columns = c(2:4), 'text-align' = 'center')
+      datatable() #%>%
+      # formatRound(c(2:4), 3) %>% 
+      # formatStyle(columns = c(2:4), 'text-align' = 'center')
   )
   
   
@@ -1951,12 +1953,12 @@ server <- function(input, output, session) {
       inner_join(quant_conc_tbl5()) %>%
       mutate(compound_name=factor(compound_name,levels=compounds5)) %>%
       replace_na(list(itsd="peak")) %>%
-      reshape2::dcast(sampleid+compound_name+conc ~ itsd,value.var="peakarea",
+      reshape2::dcast(sampleid+compound_name+conc+letter ~ itsd,value.var="peakarea",
                       fun.aggregate=mean) %>%
-      mutate(norm_peak = peak / ITSD) %>%
-      # mutate(#peak = ifelse(peak <= 10000,0,peak),
-      #         norm_peak = peak / ITSD) %>%
-      mutate(curveLab=str_extract(sampleid,pattern="CC[1-9][0-9]+|CC[1-9]+")) %>%
+      group_by(sampleid, letter) %>% 
+      mutate(ITSD=zoo::na.locf(ITSD),
+             norm_peak = peak / ITSD,
+             curveLab=str_extract(sampleid,pattern="CC[1-9][0-9]+|CC[1-9]+")) %>%
       inner_join(conc_tbl5()) %>%
       left_join(cutoff_df5()) %>%
       filter(conc_val <= maxcc,
@@ -1983,9 +1985,11 @@ server <- function(input, output, session) {
       inner_join(quant_conc_tbl5()) %>%
       mutate(compound_name=factor(compound_name,levels=compounds5)) %>%
       replace_na(list(itsd="peak")) %>%
-      reshape2::dcast(sampleid+compound_name+conc ~ itsd,value.var="peakarea",
+      reshape2::dcast(sampleid+compound_name+conc+letter ~ itsd,value.var="peakarea",
                       fun.aggregate=mean) %>%
-      mutate(norm_peak = peak / ITSD) %>%
+      group_by(sampleid, letter) %>% 
+      mutate(ITSD=zoo::na.locf(ITSD),
+             norm_peak = peak / ITSD) %>% 
       filter(!grepl("^CC[0-9]",sampleid)) %>%
       left_join(modelstart5()) %>%
       mutate(quant_val =  (norm_peak - (`(Intercept)`))/slope_value*as.numeric(input$xfactor)) %>%
@@ -2003,17 +2007,19 @@ server <- function(input, output, session) {
   
   quant_table_dl5 <- reactive({
     
-    compounds = tolower(unlist(strsplit(input$compounds5, split=",")))
+    compounds5 = tolower(unlist(strsplit(input$compounds5, split=",")))
     
     meta5() %>%
-      filter(compound_name %in% compounds) %>%
+      filter(compound_name %in% compounds5) %>%
       inner_join(quant_conc_tbl5()) %>%
-      mutate(compound_name=factor(compound_name,levels=compounds)) %>%
+      mutate(compound_name=factor(compound_name,levels=compounds5)) %>%
       replace_na(list(itsd="peak")) %>%
-      reshape2::dcast(sampleid+compound_name+conc ~ itsd,value.var="peakarea",
+      reshape2::dcast(sampleid+compound_name+conc+letter ~ itsd,value.var="peakarea",
                       fun.aggregate=mean) %>%
-      mutate(norm_peak = peak / ITSD) %>%
-      filter(!grepl("^CC[0-9]+",sampleid)) %>%
+      group_by(sampleid, letter) %>% 
+      mutate(ITSD=zoo::na.locf(ITSD),
+             norm_peak = peak / ITSD) %>% 
+      filter(!grepl("^CC[0-9]",sampleid)) %>%
       left_join(modelstart5()) %>%
       mutate(quant_val =  (norm_peak - (`(Intercept)`))/slope_value*as.numeric(input$xfactor)) %>%
       arrange(compound_name) %>%
@@ -2054,12 +2060,14 @@ server <- function(input, output, session) {
         inner_join(quant_conc_tbl5()) %>%
         mutate(compound_name=factor(compound_name,levels=compounds5)) %>%
         replace_na(list(itsd="peak")) %>%
-        reshape2::dcast(sampleid+compound_name+conc ~ itsd,value.var="peakarea",
+        reshape2::dcast(sampleid+compound_name+conc+letter ~ itsd,value.var="peakarea",
                         fun.aggregate=mean) %>%
-        mutate(norm_peak = peak / ITSD) %>%
-        filter(!grepl("^CC[0-9]+",sampleid)) %>%
+        group_by(sampleid, letter) %>% 
+        mutate(ITSD=zoo::na.locf(ITSD),
+               norm_peak = peak / ITSD) %>% 
+        filter(!grepl("^CC[0-9]",sampleid)) %>%
         left_join(modelstart5()) %>%
-        mutate(quant_val =  (norm_peak - (`(Intercept)`))/slope_value*as.numeric(input$xfactor)) %>%
+        mutate(quant_val =  (norm_peak - (`(Intercept)`))/slope_value*as.numeric(input$xfactor5)) %>%
         arrange(compound_name) %>%
         mutate(quant_val = ifelse(quant_val < 0,0,quant_val),
                quant_val = round(quant_val,2)) %>% 
@@ -2070,12 +2078,14 @@ server <- function(input, output, session) {
         inner_join(quant_conc_tbl5()) %>%
         mutate(compound_name=factor(compound_name,levels=compounds5)) %>%
         replace_na(list(itsd="peak")) %>%
-        reshape2::dcast(sampleid+compound_name+conc ~ itsd,value.var="peakarea",
+        reshape2::dcast(sampleid+compound_name+conc+letter ~ itsd,value.var="peakarea",
                         fun.aggregate=mean) %>%
-        mutate(norm_peak = peak / ITSD) %>%
-        filter(!grepl("^CC[0-9]+",sampleid)) %>%
+        group_by(sampleid, letter) %>% 
+        mutate(ITSD=zoo::na.locf(ITSD),
+               norm_peak = peak / ITSD) %>% 
+        filter(!grepl("^CC[0-9]",sampleid)) %>%
         left_join(modelstart5()) %>%
-        mutate(quant_val =  (norm_peak - (`(Intercept)`))/slope_value*as.numeric(input$xfactor)) %>%
+        mutate(quant_val =  (norm_peak - (`(Intercept)`))/slope_value*as.numeric(input$xfactor5)) %>%
         arrange(compound_name) %>%
         mutate(quant_val = ifelse(quant_val < 0,0,quant_val),
                quant_val = round(quant_val,2)) %>% 
@@ -2103,12 +2113,14 @@ server <- function(input, output, session) {
         inner_join(quant_conc_tbl5()) %>%
         mutate(compound_name=factor(compound_name,levels=compounds5)) %>%
         replace_na(list(itsd="peak")) %>%
-        reshape2::dcast(sampleid+compound_name+conc ~ itsd,value.var="peakarea",
+        reshape2::dcast(sampleid+compound_name+conc+letter ~ itsd,value.var="peakarea",
                         fun.aggregate=mean) %>%
-        mutate(norm_peak = peak / ITSD) %>%
-        filter(!grepl("^CC[0-9]+",sampleid)) %>%
+        group_by(sampleid, letter) %>% 
+        mutate(ITSD=zoo::na.locf(ITSD),
+               norm_peak = peak / ITSD) %>% 
+        filter(!grepl("^CC[0-9]",sampleid)) %>%
         left_join(modelstart5()) %>%
-        mutate(quant_val =  (norm_peak - (`(Intercept)`))/slope_value*as.numeric(input$xfactor)) %>%
+        mutate(quant_val =  (norm_peak - (`(Intercept)`))/slope_value*as.numeric(input$xfactor5)) %>%
         arrange(compound_name) %>%
         mutate(quant_val = ifelse(quant_val < 0,0,quant_val),
                quant_val = round(quant_val,2)) %>% 
@@ -2149,12 +2161,14 @@ server <- function(input, output, session) {
         inner_join(quant_conc_tbl5()) %>%
         mutate(compound_name=factor(compound_name,levels=compounds5)) %>%
         replace_na(list(itsd="peak")) %>%
-        reshape2::dcast(sampleid+compound_name+conc ~ itsd,value.var="peakarea",
+        reshape2::dcast(sampleid+compound_name+conc+letter ~ itsd,value.var="peakarea",
                         fun.aggregate=mean) %>%
-        mutate(norm_peak = peak / ITSD) %>%
-        filter(!grepl("^CC[0-9]+",sampleid)) %>%
+        group_by(sampleid, letter) %>% 
+        mutate(ITSD=zoo::na.locf(ITSD),
+               norm_peak = peak / ITSD) %>% 
+        filter(!grepl("^CC[0-9]",sampleid)) %>%
         left_join(modelstart5()) %>%
-        mutate(quant_val =  (norm_peak - (`(Intercept)`))/slope_value*as.numeric(input$xfactor)) %>%
+        mutate(quant_val =  (norm_peak - (`(Intercept)`))/slope_value*as.numeric(input$xfactor5)) %>%
         arrange(compound_name) %>%
         mutate(quant_val = ifelse(quant_val < 0,0,quant_val),
                quant_val = round(quant_val,2)) %>% 
@@ -2253,8 +2267,9 @@ server <- function(input, output, session) {
 
     rawdf_ba() %>%
       filter(itsd=="ITSD") %>%
-      group_by(letter) %>%
-      summarize(avg = mean(peakarea))
+      group_by(Data.File, letter) %>%
+      summarize(avg = mean(peakarea),
+                med = median(peakarea))
   })
 
   conc_int_heatmap_bile_acid <- reactive({
@@ -2302,8 +2317,8 @@ server <- function(input, output, session) {
              !grepl("(CC[0-9]+)", sampleid)) %>%
       select(-checked) %>%
       left_join(conc_int_bile_acid()) %>%
-      mutate(norm_peak = ifelse(is.finite(log((peakarea / avg), base = 2)),
-                                log((peakarea / avg), base = 2),
+      mutate(norm_peak = ifelse(is.finite(log((peakarea / med), base = 2)),
+                                log((peakarea / med), base = 2),
                                 (min_peak * -20))) %>%
       separate(Data.File,into=c("num","date","batch","sampleid","conc"),
                sep="__") %>%
@@ -2363,8 +2378,8 @@ server <- function(input, output, session) {
              !grepl("(CC[0-9]+)", sampleid)) %>%
       select(-checked) %>%
       left_join(conc_int_bile_acid()) %>%
-      mutate(norm_peak = ifelse(is.finite(log((peakarea / avg), base = 2)),
-                                log((peakarea / avg), base = 2),
+      mutate(norm_peak = ifelse(is.finite(log((peakarea / med), base = 2)),
+                                log((peakarea / med), base = 2),
                                 (min_peak * -20))) %>%
       separate(Data.File,into=c("num","date","batch","sampleid","conc"),
                sep="__") %>%
@@ -2918,5 +2933,8 @@ server <- function(input, output, session) {
 
 # run app -----------------------------------------------------------------
 
+# Run locally
 # shinyApp(ui, server)
+
+# Run on supermac
 runApp(list(ui=ui,server=server),host="0.0.0.0",port=5000)
