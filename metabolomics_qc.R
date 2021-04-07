@@ -323,6 +323,13 @@ readin_bile_csv_single_file <- function(filename,na.value=0,recursive=F){
   return(int)
 }
 
+# This function is used to generate heights and widths of PDFs for faceted plots
+get_row_col <- function(p) {
+  n <- length(unique(ggplot_build(p)$data[[1]]$PANEL))
+  par <- ggplot_build(p)$layout$facet$params
+  wrap_dims(n, par$nrow, par$ncol)
+}
+
 # set up directory and files ----------------------------------------------
 
 #system("open .")
@@ -332,7 +339,7 @@ wddir <- "/Volumes/chaubard-lab/shiny_workspace/csvs/"
 
 ui <- fluidPage(
   # shinythemes::themeSelector(),
-  titlePanel("DFI Metabolomics QC (v1.8)"),
+  titlePanel("DFI Metabolomics QC (v1.8.1)"),
   br(),
   
   # CSV file selector -------------------------------------------------------
@@ -371,9 +378,6 @@ ui <- fluidPage(
                          ),
                          mainPanel(
                            br(),
-                           downloadButton("qc_report_download", "Download PFBBr QC Quant Report", class = "butt"),
-                           tags$style(type="text/css", "#qc_report_download {background-color:green;color: white}"),
-                           br(),
                            br(),
                            dataTableOutput("conc"),
                            plotOutput("quant"),
@@ -381,17 +385,26 @@ ui <- fluidPage(
                            dataTableOutput("model"), # Slope table
                            br(),
                            actionButton("cc_metrics_download", "Store Calibration Curve Metrics"),
+                           tags$style(type="text/css", 
+                                      "#cc_metrics_download {background-color:green;color: white}"),
                            br(),
                            br(),
+                           downloadButton("qc_report_download", "Download PFBBr QC Quant Report", class = "butt"),
+                           tags$style(type="text/css", 
+                                      "#qc_report_download {background-color:green;color: white}"),
+                           br(),
+                           br(),
+                           plotOutput("plasma_plot",
+                                      height = "750px",
+                                      width = "100%"),
                            h4("Standardized table:"),
                            dataTableOutput("quant_tbl"),
-                           downloadButton("downloadData", "Download PFBBr Quant Table"),
+                           actionButton("downloadData", "Download PFBBr Quant Table"),
+                           tags$style(type="text/css", 
+                                      "#downloadData {background-color:green;color: white}"),
                            br(),
                            br(),
                            # dataTableOutput("TEST"),
-                           # plotOutput("TEST_PLOT", 
-                           #            height = "800px",
-                           #            width = "150%"),
                            h4("Quantitative Results:"),
                            checkboxInput("qcfil_quant", "Remove QCs"),
                            downloadButton("quant_download", "Download PFBBr Quant Barplot"),
@@ -429,6 +442,7 @@ ui <- fluidPage(
                                        plotOutput("raw_boxplots",height="1410px")),
                            h4("Normalized heatmap"),
                            downloadButton("heatmap_download", "Download PFBBr Normalized Heatmap"),
+                           h4("This heatmap shows the log2 fold-change of median-normalized peak areas for each compound. Compounds are clustered on both the y-axis and samples are clustered on the x-axis."),
                            plotOutput("heatmap_plot", 
                                       height = "1000px",
                                       width = "125%"),
@@ -463,9 +477,6 @@ ui <- fluidPage(
                          ),
                          mainPanel(
                            br(),
-                           downloadButton("indole_qc_report_download", "Download Indole QC Quant Report", class = "butt"),
-                           tags$style(type="text/css", "#indole_qc_report_download {background-color:green;color: white}"),
-                           br(),
                            br(),
                            dataTableOutput("conc2"),
                            plotOutput("quant2"),
@@ -479,11 +490,20 @@ ui <- fluidPage(
                            dataTableOutput("model2"),
                            br(),
                            actionButton("indole_cc_metrics_download", "Store Calibration Curve Metrics"),
+                           tags$style(type="text/css", "#indole_cc_metrics_download {background-color:green;color: white}"),
                            br(),
                            br(),
+                           downloadButton("indole_qc_report_download", "Download Indole QC Quant Report", class = "butt"),
+                           tags$style(type="text/css", "#indole_qc_report_download {background-color:green;color: white}"),
+                           br(),
+                           br(),
+                           plotOutput("indole_plasma_plot",
+                                      height = "750px",
+                                      width = "100%"),
                            h4("Standardized table:"),
                            dataTableOutput("quant_tbl2"),
-                           downloadButton("downloadData3", "Download Indole Quant Table"),
+                           actionButton("downloadData3", "Download Indole Quant Table"),
+                           tags$style(type="text/css", "#downloadData3 {background-color:green;color: white}"),
                            br(),
                            br(),
                            h4("Quantitative Results:"),
@@ -521,6 +541,7 @@ ui <- fluidPage(
                            #            width = "150%"),
                            h4("Normalized heatmap"),
                            downloadButton("heatmap_download2", "Download Indole Heatmap"),
+                           h4("This heatmap shows the log2 fold-change of median-normalized peak areas for each compound. Compounds are clustered on both the y-axis and samples are clustered on the x-axis."),
                            plotOutput("heatmap_plot2",
                                       height = "1000px",
                                       width = "125%"),
@@ -556,9 +577,6 @@ ui <- fluidPage(
                          ),
                          mainPanel(
                            br(),
-                           downloadButton("ba_qc_report_download", "Download Bile Acid QC Quant Report", class = "butt"),
-                           tags$style(type="text/css", "#ba_qc_report_download {background-color:green;color: white}"),
-                           br(),
                            br(),
                            # dataTableOutput("TEST"),
                            dataTableOutput("conc5"),
@@ -569,11 +587,20 @@ ui <- fluidPage(
                            dataTableOutput("model5"),
                            br(),
                            actionButton("ba_cc_metrics_download", "Store Calibration Curve Metrics"),
+                           tags$style(type="text/css", "#ba_cc_metrics_download {background-color:green;color: white}"),
                            br(),
                            br(),
+                           downloadButton("ba_qc_report_download", "Download Bile Acid QC Quant Report", class = "butt"),
+                           tags$style(type="text/css", "#ba_qc_report_download {background-color:green;color: white}"),
+                           br(),
+                           br(),
+                           plotOutput("ba_plasma_plot",
+                                      height = "750px",
+                                      width = "100%"),
                            h4("Standardized table:"),
                            dataTableOutput("quant_tbl5"),
-                           downloadButton("downloadData5", "Download Bile Acid Quant Table"),
+                           actionButton("downloadData5", "Download Bile Acid Quant Table"),
+                           tags$style(type = "text/css", "#downloadData5 {background-color:green;color: white}"),
                            br(),
                            br(),
                            h4("Quantitative Results:"),
@@ -605,11 +632,19 @@ ui <- fluidPage(
                                                    value=5000)
                          ),
                          mainPanel(
+                           br(),
+                           downloadButton("ba_norm_qc_report_download", "Download Bile Acid QC Norm Report", class = "butt"),
+                           tags$style(type="text/css", "#ba_norm_qc_report_download {background-color:green;color: white}"),
+                           # dataTableOutput("TEST"),
+                           # plotOutput("TEST_PLOT",
+                           #            height = "800px",
+                           #            width = "150%"),
                            splitLayout(cellWidths = c("25%","75%"),
                                        uiOutput("compound_list_bile_acid"),
                                        plotOutput("raw_boxplots_bile_acid",height="1072px")),
                            h4("Normalized heatmap"),
                            downloadButton("heatmap_download_bile_acid", "Download Bile Acid Heatmap"),
+                           h4("This heatmap shows the log2 fold-change of median-normalized peak areas for each compound. Compounds are clustered on both the y-axis and samples are clustered on the x-axis."),
                            plotOutput("heatmap_plot_bile_acid",
                                       height = "1000px",
                                       width = "125%"),
@@ -637,13 +672,17 @@ ui <- fluidPage(
                                       br()
                          ),
                          mainPanel(
-                         dataTableOutput("TEST"),
+                         # dataTableOutput("TEST"),
                          h4("Calibration Slopes per Batch"),
                          plotOutput("slope_qc_plot", height="360px", width = "110%"),
+                         downloadButton("slope_qc_plot_download", "Download Calibration Plot", class = "butt"),
+                         tags$style(type="text/css", "#slope_qc_plot_download {background-color:green;color: white}"),
                          br(),
                          br(),
                          h4("Plasma QC Samples per Batch"),
-                         plotOutput("plasma_qc_plot", height = "780px", width = "110%")
+                         plotOutput("plasma_qc_plot", height = "360px", width = "110%"),
+                         downloadButton("plasma_qc_plot_download", "Download Plasma QC Plot", class = "butt"),
+                         tags$style(type="text/css", "#plasma_qc_plot_download {background-color:green;color: white}")
                          )
                        )
               ),
@@ -706,7 +745,7 @@ server <- function(input, output, session) {
   })
   
   
-  # PFBBr quant qc tab ------------------------------------------------------------
+  # PFBBr quant tab ------------------------------------------------------------
   
   #make concentration table
   conc_tbl <- reactive({
@@ -873,19 +912,25 @@ server <- function(input, output, session) {
     
   })
   
-  #download handler
-  output$downloadData <- downloadHandler(
-    
-    filename = function(){
-      paste0("quant_results_",
-             gsub("\\.csv","",input$filename),"_",
-             gsub("\\-","",Sys.Date()),".csv")
-    },
-    
-    content = function(file) {
-      write.csv(quant_table_dl(),file,
-                row.names=F,quote=F)
-    }
+  
+  ## Save quant table with and without QCs
+  observeEvent( 
+    input$downloadData,
+    {
+    write.csv(quant_table_dl(), 
+              paste0("/Volumes/chaubard-lab/shiny_workspace/CLIN_Finals_QCs/quant_results_",
+                                gsub("\\.csv","",input$filename),"_",
+                                gsub("\\-","",Sys.Date()),".csv"), row.names=F,quote=F)
+    write.csv(quant_table_dl() %>% filter(!str_detect(sampleid, "MB"),
+                                          !str_detect(sampleid, "Pooled"),
+                                          !str_detect(sampleid, "BHIQC"),
+                                          !str_detect(sampleid, "Plasma"),
+                                          !str_detect(sampleid, "Hexanes"),
+                                          !grepl("CC[0-9]+", sampleid)), 
+              paste0("/Volumes/chaubard-lab/shiny_workspace/CLIN_Finals/removed_qcs_quant_results_",
+                     gsub("\\.csv","",input$filename), "_",
+                     gsub("\\-","",Sys.Date()),".csv"), row.names=F,quote=F)
+    } 
   )
   
   #make quant bar graph
@@ -1123,12 +1168,12 @@ server <- function(input, output, session) {
       theme_bw() +
       theme(panel.grid.minor= element_blank(),
             panel.grid.major.x = element_blank(),
-            legend.text = element_text(color = "black", size = 13),
-            legend.title = element_text(color = "black", size = 15),
+            legend.text = element_text(color = "black", size = 8),
+            legend.title = element_text(color = "black", size = 10),
             legend.position = "top",
             strip.text=element_text(color = "black", size=9),
             axis.text =element_text(color = "black", size=8),
-            axis.title = element_text(color = "black", size = 15),
+            axis.title = element_text(color = "black", size = 14),
             plot.margin = margin(1,1,0,1.1, unit = 'cm')) +
       ggsci::scale_color_locuszoom() +
       ggsci::scale_fill_locuszoom() +
@@ -1171,12 +1216,12 @@ server <- function(input, output, session) {
       theme_bw() +
       theme(panel.grid.minor= element_blank(),
             panel.grid.major.x = element_blank(),
-            legend.text = element_text(color = "black", size = 13),
-            legend.title = element_text(color = "black", size = 15),
+            legend.text = element_text(color = "black", size = 8),
+            legend.title = element_text(color = "black", size = 10),
             legend.position = "top",
             strip.text=element_text(color = "black", size=9),
             axis.text =element_text(color = "black", size=8),
-            axis.title = element_text(color = "black", size = 15),
+            axis.title = element_text(color = "black", size = 14),
             plot.margin = margin(1,1,0,1.1, unit = 'cm')) +
       ggsci::scale_color_locuszoom() +
       ggsci::scale_fill_locuszoom() +
@@ -1326,13 +1371,157 @@ server <- function(input, output, session) {
   #   options = list(pageLength=5)
   # )
   
+  ### Plasma QC ###
+  
+  # Build summary specifically for high and low ranges for horizontal lines
+  meta2_4 <- reactive({
+    compounds = unlist(strsplit(input$compounds, split=","))
+    
+    meta() %>%
+      filter(compound_name %in% compounds) %>%
+      inner_join(quant_conc_tbl()) %>%
+      replace_na(list(itsd="peak")) %>%
+      reshape2::dcast(sampleid+compound_name+conc ~ itsd,value.var="peakarea") %>%
+      mutate(norm_peak=peak / ITSD) %>%
+      filter(!grepl("\\_CC[0-9]",sampleid),
+             grepl(pattern = "[Pp]lasma", sampleid)) %>%
+      left_join(modelstart()) %>%
+      mutate(quant_val =  (norm_peak - (`(Intercept)`))/slope_value*as.numeric(input$xfactor)) %>%
+      separate(sampleid,into=c("num","date","batch","sampleid","conc"),
+               sep="__") %>% 
+      arrange(compound_name) %>%
+      mutate(quant_val = ifelse(quant_val < 0,0,quant_val),
+             quant_val = round(quant_val,2)) %>% 
+        group_by(batch, compound_name) %>%
+        summarise(stdev = sd(quant_val, na.rm = T),
+                  average = mean(quant_val, na.rm = T),
+                  cv = (stdev / average)*100,
+                  upper_limit = average + 2.5*stdev,
+                  lower_limit = average - 2.5*stdev
+        ) %>%
+      pivot_longer(-c(batch, compound_name), names_to = "variable", values_to = "value") %>%
+      mutate(variable = factor(variable, levels = c("upper_limit", "average", "lower_limit","stdev","cv")))
+    })
+  
+  # Need another summary dataframe to plot CVs and averages for geom_label
+  meta2_5 <- reactive({
+    compounds = unlist(strsplit(input$compounds, split=","))
+    
+    meta() %>%
+      filter(compound_name %in% compounds) %>%
+      inner_join(quant_conc_tbl()) %>%
+      replace_na(list(itsd="peak")) %>%
+      reshape2::dcast(sampleid+compound_name+conc ~ itsd,value.var="peakarea") %>%
+      mutate(norm_peak=peak / ITSD) %>%
+      filter(!grepl("\\_CC[0-9]",sampleid),
+             grepl(pattern = "[Pp]lasma", sampleid)) %>%
+      left_join(modelstart()) %>%
+      mutate(quant_val =  (norm_peak - (`(Intercept)`))/slope_value*as.numeric(input$xfactor)) %>%
+      separate(sampleid,into=c("num","date","batch","sampleid","conc"),
+               sep="__") %>% 
+      arrange(compound_name) %>%
+      mutate(quant_val = ifelse(quant_val < 0,0,quant_val),
+             quant_val = round(quant_val,2)) %>% 
+      group_by(batch, compound_name) %>%
+      summarise(stdev = sd(quant_val, na.rm = T),
+                average = mean(quant_val, na.rm = T),
+                cv = (stdev / average)*100,
+                upper_limit = average + 2.5*stdev,
+                lower_limit = average - 2.5*stdev
+      ) 
+  })
+
+  # Build another dataframe to plot
+  meta2_6 <- reactive({
+    compounds = unlist(strsplit(input$compounds, split=","))
+    
+    meta() %>%
+      filter(compound_name %in% compounds) %>%
+      inner_join(quant_conc_tbl()) %>%
+      replace_na(list(itsd="peak")) %>%
+      reshape2::dcast(sampleid+compound_name+conc ~ itsd,value.var="peakarea") %>%
+      mutate(norm_peak=peak / ITSD) %>%
+      filter(!grepl("\\_CC[0-9]",sampleid),
+             grepl(pattern = "[Pp]lasma", sampleid)) %>%
+      left_join(modelstart()) %>%
+      mutate(quant_val =  (norm_peak - (`(Intercept)`))/slope_value*as.numeric(input$xfactor)) %>%
+      separate(sampleid,into=c("num","date","batch","sampleid","conc"),
+               sep="__") %>% 
+      separate(sampleid, c("sample","qc","replicate"), sep = "_") %>% 
+      arrange(compound_name) %>%
+      mutate(quant_val = ifelse(quant_val < 0,0,quant_val),
+             quant_val = round(quant_val,2))
+  })
+  
+  # output$TEST <- renderDataTable(
+  #   meta2_6(),
+  #   options = list(pageLength=5)
+  # )
+
+  plasma_plot = reactive({
+    ggplot(meta2_6(), aes(x = batch, y = quant_val, shape = replicate, color = compound_name, 
+                          label = ifelse(is.na(quant_val),"NA",paste0(round(quant_val, digits = 1), "mM")))) +
+      geom_point(size = 3) +
+      geom_point(meta2_5(), mapping = aes(x= batch, y = average),
+                 color = "black", shape = 3, size = 3, inherit.aes = F) +
+      geom_hline(subset(meta2_4(), variable %in%
+                          c("average","upper_limit","lower_limit")),
+                 mapping = aes(yintercept = value, linetype = variable))+
+      ggrepel::geom_label_repel(meta2_5(),
+                                mapping = aes(x= batch, y = average,
+                                              label = ifelse(is.na(cv),"NA",paste0(round(cv, digits = 1), "%"))),
+                                label.padding = 0.1,
+                                direction = "y", max.overlaps = 50, min.segment.length = 5,
+                                size = 1.2, inherit.aes = F) +
+      ggrepel::geom_label_repel(label.padding = 0.1,
+                                direction = "x", max.overlaps = 50, min.segment.length = 5,
+                                size = 1.2, show.legend = FALSE) +
+      theme_bw() +
+      theme(panel.grid.minor= element_blank(),
+            panel.grid.major.x = element_blank(),
+            legend.text = element_text(color = "black", size = 8),
+            legend.title = element_text(color = "black", size = 10, hjust = 0.5),
+            legend.position = "top",
+            plot.title = element_text(color = "black", size = 18, face = "bold", hjust= 0.5),
+            strip.text=element_text(color = "black", size=9),
+            axis.text.x =element_text(color = "black", size=8),
+            axis.title = element_text(color = "black", size = 14),
+            plot.margin = margin(2,0.5,2,1.1, unit = 'cm')) +
+      ggsci::scale_color_locuszoom() +
+      guides(color = guide_legend(title = "Compound",
+                                  override.aes = list(size = 2.5), ncol = 1,
+                                  title.position="top",
+                                  label.position = "right"), fill = F,
+             shape = guide_legend(title = "Replicate",
+                                  override.aes = list(size = 2.5), ncol = 1,
+                                  title.position="top",
+                                  label.position = "right"),
+             linetype = guide_legend(ncol = 1,
+                                     title.position="top",
+                                     label.position = "right")) +
+      scale_linetype_manual(name = "Metrics", values = c(1, 2, 1),
+                            labels = c("+2.5 SD", "Mean", "-2.5 SD"),
+                            guide = guide_legend(ncol = 1,
+                                                 title.position="top",
+                                                 label.position = "right"))+
+      xlab("\nBatch Number") +
+      ylab("Concentration (mM)\n") +
+      ggtitle("Plasma QC Summary\n") +
+      facet_wrap(~compound_name, nrow = 1)
+  })
+  
+  output$plasma_plot <- renderPlot(
+    plasma_plot()
+  )
+
+  
   ## Save report 
   output$qc_report_download <- downloadHandler(
     filename = function(){
       paste0("PFBBr_QC_Report_",unique(meta2_2()$batch),"_",Sys.Date(),".pdf")
     },
     content = function(file) {
-      pdf(file, height = 11, width = 8.5)
+      pdf(file, height = 11, width = 8.5, onefile = TRUE)
       print(
         gridExtra::grid.arrange(
           pfbbr_qc_plot1() +
@@ -1345,6 +1534,7 @@ server <- function(input, output, session) {
           pfbbr_qc_plot2() + theme(legend.position = "none"),
           nrow = 2)
       )
+      print(plasma_plot())
       print(
         gridExtra::grid.arrange(
           table_list1())
@@ -1360,8 +1550,6 @@ server <- function(input, output, session) {
     {write.csv(model2(), paste0("/Volumes/chaubard-lab/shiny_workspace/calibration_metrics/",
                                 gsub(".csv","",input$filename),"_CC_Metrics",".csv"))} 
   )
-
-
 
 
   # PFBBr normalization tab -------------------------------------------------------
@@ -1933,7 +2121,7 @@ server <- function(input, output, session) {
 
 
 
-  # Indole quant ------------------------------------------------------------
+  # Indole quant tab ------------------------------------------------------------
 
 
   #make concentration table
@@ -2128,21 +2316,27 @@ server <- function(input, output, session) {
 
   })
 
-  #download handler
-  output$downloadData3 <- downloadHandler(
-
-    filename = function(){
-      paste0("indole_quant_results_",
-             gsub("\\.csv","",input$filename),"_",
-             gsub("\\-","",Sys.Date()),".csv")
-    },
-
-    content = function(file) {
-      write.csv(quant_table_dl2(),file,
-                row.names=F,quote=F)
-    }
+## Save quant table with and without QCs
+  observeEvent( 
+    input$downloadData3,
+    {
+      write.csv(quant_table_dl2(), 
+                paste0("/Volumes/chaubard-lab/shiny_workspace/CLIN_Finals_QCs/quant_results_",
+                       gsub("\\.csv","",input$filename),"_",
+                       gsub("\\-","",Sys.Date()),".csv"), row.names=F,quote=F)
+      write.csv(quant_table_dl2() %>% filter(!str_detect(sampleid, "MB"),
+                                            !str_detect(sampleid, "Pooled"),
+                                            !str_detect(sampleid, "BHIQC"),
+                                            !str_detect(sampleid, "Plasma"),
+                                            !str_detect(sampleid, "Hexanes"),
+                                            !grepl("CC[0-9]+", sampleid)), 
+                paste0("/Volumes/chaubard-lab/shiny_workspace/CLIN_Finals/removed_qcs_quant_results_",
+                       gsub("\\.csv","",input$filename), "_",
+                       gsub("\\-","",Sys.Date()),".csv"), row.names=F,quote=F)
+    } 
   )
-
+  
+  
   #make quant bar graph
   indole_quant_barplot <- function()({
     
@@ -2393,7 +2587,7 @@ server <- function(input, output, session) {
             legend.position = "top",
             strip.text=element_text(color = "black", size=5),
             axis.text =element_text(color = "black", size=8),
-            axis.title = element_text(color = "black", size = 10),
+            axis.title = element_text(color = "black", size = 14),
             plot.margin = margin(1,0.5,0,0.6, unit = 'cm')) +
       ggsci::scale_color_igv() +
       ggsci::scale_fill_igv() +
@@ -2438,7 +2632,7 @@ server <- function(input, output, session) {
             legend.position = "top",
             strip.text=element_text(color = "black", size=5),
             axis.text =element_text(color = "black", size=8),
-            axis.title = element_text(color = "black", size = 10),
+            axis.title = element_text(color = "black", size = 14),
             plot.margin = margin(3.5,0.5,0,0.6, unit = 'cm')) +
       ggsci::scale_color_igv() +
       ggsci::scale_fill_igv() +
@@ -2572,7 +2766,7 @@ server <- function(input, output, session) {
                                           color = "black", face = "bold"),
                 plot.margin = margin(1,0.5,0.5,0.5, unit = 'cm')) +
           facet_wrap(~compound_name+conc,scales="free", ncol = 2) +
-          xlab("\nConcentration (ng/mL)") +
+          xlab("\nConcentration (ng/uL)") +
           ylab("Normalized Peak Area\n") +
           ggtitle("Calibration Curves")
       }else{
@@ -2613,7 +2807,7 @@ server <- function(input, output, session) {
                                           color = "black", face = "bold"),
                 plot.margin = margin(1,0.5,0.5,0.5, unit = 'cm')) +
           facet_wrap(~compound_name+conc,scales="free", ncol = 2) +
-          xlab("\nConcentration (ng/mL)") +
+          xlab("\nConcentration (ng/uL)") +
           ylab("Normalized Peak Area\n") +
           ggtitle("Calibration Curves")
 
@@ -2672,6 +2866,158 @@ server <- function(input, output, session) {
   })
 
 
+  ### Plasma QC ###
+  
+  # Build summary specifically for high and low ranges for horizontal lines
+  indole_meta2_4 <- reactive({
+    
+    compounds2 = unlist(strsplit(input$compounds2, split=","))
+    
+    indole_meta() %>%
+      mutate(compound_name=gsub("\\_[0-9]+$","",compound_name)) %>%
+      filter(compound_name %in% compounds2) %>%
+      replace_na(list(itsd="peak")) %>%
+      reshape2::dcast(Data.File+compound_name ~ itsd,value.var="peakarea") %>%
+      mutate(#peak = ifelse(peak <= 10000,0,peak),
+        norm_peak=peak / ITSD) %>%
+      filter(!grepl("\\_[Cc][Cc][0-9]",Data.File),
+             grepl(pattern = "[Pp]lasma", Data.File)) %>%
+      left_join(modelstart2()) %>%
+      mutate(quant_val =  (norm_peak - (`(Intercept)`))/slope_value) %>%
+      separate(Data.File,into=c("num","date","batch","sampleid","conc"),
+               sep="__") %>%
+      arrange(compound_name) %>%
+      mutate(quant_val = ifelse(quant_val < 0,0,quant_val),
+             quant_val = round(quant_val,2)) %>%
+      group_by(batch, compound_name) %>%
+      summarise(stdev = sd(quant_val, na.rm = T),
+                average = mean(quant_val, na.rm = T),
+                cv = (stdev / average)*100,
+                upper_limit = average + 2.5*stdev,
+                lower_limit = average - 2.5*stdev
+      ) %>%
+      pivot_longer(-c(batch, compound_name), names_to = "variable", values_to = "value") %>%
+      mutate(variable = factor(variable, levels = c("upper_limit", "average", "lower_limit","stdev","cv")))
+  })
+  
+  # Need another summary dataframe to plot CVs and averages for geom_label
+  indole_meta2_5 <- reactive({
+    compounds2 = unlist(strsplit(input$compounds2, split=","))
+    
+    indole_meta() %>%
+      mutate(compound_name=gsub("\\_[0-9]+$","",compound_name)) %>%
+      filter(compound_name %in% compounds2) %>%
+      replace_na(list(itsd="peak")) %>%
+      reshape2::dcast(Data.File+compound_name ~ itsd,value.var="peakarea") %>%
+      mutate(#peak = ifelse(peak <= 10000,0,peak),
+        norm_peak=peak / ITSD) %>%
+      filter(!grepl("\\_[Cc][Cc][0-9]",Data.File),
+             grepl(pattern = "[Pp]lasma", Data.File)) %>%
+      left_join(modelstart2()) %>%
+      mutate(quant_val =  (norm_peak - (`(Intercept)`))/slope_value) %>%
+      separate(Data.File,into=c("num","date","batch","sampleid","conc"),
+               sep="__") %>% 
+      arrange(compound_name) %>%
+      mutate(quant_val = ifelse(quant_val < 0,0,quant_val),
+             quant_val = round(quant_val,2)) %>%
+      group_by(batch, compound_name) %>%
+      summarise(stdev = sd(quant_val, na.rm = T),
+                average = mean(quant_val, na.rm = T),
+                cv = (stdev / average)*100,
+                upper_limit = average + 2.5*stdev,
+                lower_limit = average - 2.5*stdev
+      )
+  })
+  
+  # Build another dataframe to plot
+  indole_meta2_6 <- reactive({
+    compounds2 = unlist(strsplit(input$compounds2, split=","))
+    
+    indole_meta() %>%
+      mutate(compound_name=gsub("\\_[0-9]+$","",compound_name)) %>%
+      filter(compound_name %in% compounds2) %>%
+      replace_na(list(itsd="peak")) %>%
+      reshape2::dcast(Data.File+compound_name ~ itsd,value.var="peakarea") %>%
+      mutate(#peak = ifelse(peak <= 10000,0,peak),
+        norm_peak=peak / ITSD) %>%
+      filter(!grepl("\\_[Cc][Cc][0-9]",Data.File),
+             grepl(pattern = "[Pp]lasma", Data.File)) %>%
+      left_join(modelstart2()) %>%
+      mutate(quant_val =  (norm_peak - (`(Intercept)`))/slope_value) %>%
+      separate(Data.File,into=c("num","date","batch","sampleid","conc"),
+               sep="__") %>% 
+      mutate(sample = str_extract(sampleid, "[Pp]lasma"),
+             qc = str_extract(sampleid, "[Qq][Cc]"),
+             replicate = as.factor(str_extract(sampleid, "[0-9]+"))) %>% 
+      arrange(compound_name) %>%
+      mutate(quant_val = ifelse(quant_val < 0,0,quant_val),
+             quant_val = round(quant_val,2))
+  })
+  
+  # output$TEST <- renderDataTable(
+  #   meta2_6(),
+  #   options = list(pageLength=5)
+  # )
+  
+  indole_plasma_plot = reactive({
+    ggplot(indole_meta2_6(), aes(x = batch, y = quant_val, shape = replicate, color = compound_name, 
+                          label = ifelse(is.na(quant_val),"NA",paste0(round(quant_val, digits = 1), "ng/uL")))) +
+      geom_point(size = 3) +
+      geom_point(indole_meta2_5(), mapping = aes(x= batch, y = average),
+                 color = "black", shape = 3, size = 3, inherit.aes = F) +
+      geom_hline(subset(indole_meta2_4(), variable %in%
+                          c("average","upper_limit","lower_limit")),
+                 mapping = aes(yintercept = value, linetype = variable))+
+      ggrepel::geom_label_repel(indole_meta2_5(),
+                                mapping = aes(x= batch, y = average,
+                                              label = ifelse(is.na(cv),"NA",paste0(round(cv, digits = 1), "%"))),
+                                label.padding = 0.1,
+                                direction = "y", max.overlaps = 50, min.segment.length = 5,
+                                size = 1.2, inherit.aes = F) +
+      ggrepel::geom_label_repel(label.padding = 0.1,
+                                direction = "both", max.overlaps = 50, min.segment.length = 10,
+                                force = 2, nudge_x = 0.3,
+                                size = 1.2, show.legend = FALSE) +
+      theme_bw() +
+      theme(panel.grid.minor= element_blank(),
+            panel.grid.major.x = element_blank(),
+            legend.text = element_text(color = "black", size = 8),
+            legend.title = element_text(color = "black", size = 10, hjust = 0.5),
+            legend.position = "top",
+            plot.title = element_text(color = "black", size = 18, face = "bold", hjust= 0.5),
+            strip.text=element_text(color = "black", size=9),
+            axis.text.x =element_text(color = "black", size=8),
+            axis.text.y =element_text(color = "black", size=8, angle = 60, hjust = 0.5, vjust = 0.5),
+            axis.title = element_text(color = "black", size = 14),
+            plot.margin = margin(2,0.5,1.1,0.5, unit = 'cm')) +
+      ggsci::scale_color_igv() +
+      guides(color = guide_legend(title = "Compound",
+                                  override.aes = list(size = 2.5), ncol = 3,
+                                  title.position="top", 
+                                  label.position = "right"), fill = F,
+             shape = guide_legend(title = "Replicate",
+                                  override.aes = list(size = 2.5), ncol = 1,
+                                  title.position="top",
+                                  label.position = "right"),
+             linetype = guide_legend(ncol = 1,
+                                     title.position="top",
+                                     label.position = "right")) +
+      scale_linetype_manual(name = "Metrics", values = c(1, 2, 1),
+                            labels = c("+2.5 SD", "Mean", "-2.5 SD"),
+                            guide = guide_legend(ncol = 1,
+                                                 title.position="top",
+                                                 label.position = "right"))+
+      xlab("\nBatch Number") +
+      ylab("Concentration (ng/uL)\n") +
+      ggtitle("Plasma QC Summary\n") +
+      facet_wrap(~compound_name, nrow = 3, scales = "free_y")
+  })
+  
+  output$indole_plasma_plot <- renderPlot(
+    indole_plasma_plot()
+  )
+  
+  
   ## Save report ##
   output$indole_qc_report_download <- downloadHandler(
     filename = function(){
@@ -2689,7 +3035,7 @@ server <- function(input, output, session) {
             )
 
       print(indole_qc_plot2() + theme(plot.title = element_blank()))
-
+      print(indole_plasma_plot())
       print(gridExtra::grid.arrange(
           indole_table_list1())
       )
@@ -3420,20 +3766,25 @@ indole_rawdf2_1 <- reactive({
     #select(-num,-date_run,-batch,-conc)
 
   })
-
-  #download handler
-  output$downloadData5 <- downloadHandler(
-
-    filename = function(){
-      paste0("quant_results_",
-             gsub("\\.csv","",input$filename),"_",
-             gsub("\\-","",Sys.Date()),".csv")
-    },
-
-    content = function(file) {
-      write.csv(quant_table_dl5(),file,
-                row.names=F,quote=F)
-    }
+  
+  ## Save quant table with and without QCs
+  observeEvent( 
+    input$downloadData5,
+    {
+      write.csv(quant_table_dl5(), 
+                paste0("/Volumes/chaubard-lab/shiny_workspace/CLIN_Finals_QCs/quant_results_",
+                       gsub("\\.csv","",input$filename),"_",
+                       gsub("\\-","",Sys.Date()),".csv"), row.names=F,quote=F)
+      write.csv(quant_table_dl5() %>% filter(!str_detect(sampleid, "MB"),
+                                            !str_detect(sampleid, "Pooled"),
+                                            !str_detect(sampleid, "BHIQC"),
+                                            !str_detect(sampleid, "Plasma"),
+                                            !str_detect(sampleid, "Hexanes"),
+                                            !grepl("CC[0-9]+", sampleid)), 
+                paste0("/Volumes/chaubard-lab/shiny_workspace/CLIN_Finals/removed_qcs_quant_results_",
+                       gsub("\\.csv","",input$filename), "_",
+                       gsub("\\-","",Sys.Date()),".csv"), row.names=F,quote=F)
+    } 
   )
 
   # Make quant_bar dataframe to assign sizes based on number of samples
@@ -3627,6 +3978,7 @@ indole_rawdf2_1 <- reactive({
     }
   )
 
+
   #### QC Report ####
   meta5_1 <- reactive({
 
@@ -3646,7 +3998,6 @@ indole_rawdf2_1 <- reactive({
              num = as.numeric(num),
              cc_shape = ifelse(grepl("CC[0-9]+", sampleid), "Calibration Curve Sample", "Standard Sample"))
   })
-
 
   # Build another dataframe of summary stats
   meta5_2 <- reactive({
@@ -3701,7 +4052,7 @@ indole_rawdf2_1 <- reactive({
             legend.position = "top",
             strip.text=element_text(color = "black", size=5),
             axis.text =element_text(color = "black", size=8),
-            axis.title = element_text(color = "black", size = 10),
+            axis.title = element_text(color = "black", size = 14),
             plot.margin = margin(1,0.5,0,0.6, unit = 'cm')) +
       ggsci::scale_color_ucscgb() +
       ggsci::scale_fill_ucscgb() +
@@ -3745,7 +4096,7 @@ indole_rawdf2_1 <- reactive({
             legend.position = "top",
             strip.text=element_text(color = "black", size=5),
             axis.text =element_text(color = "black", size=8),
-            axis.title = element_text(color = "black", size = 10),
+            axis.title = element_text(color = "black", size = 14),
             plot.margin = margin(3.5,0.5,0,0.6, unit = 'cm')) +
       ggsci::scale_color_ucscgb() +
       ggsci::scale_fill_ucscgb() +
@@ -3897,6 +4248,174 @@ indole_rawdf2_1 <- reactive({
   ba_table_list1 <- function()({
     gridExtra::tableGrob(meta5_3(), rows = NULL, theme = ba_tt)
   })
+  
+  ### Plasma QC ###
+  
+  # Build summary specifically for high and low ranges for horizontal lines
+  meta5_4 <- reactive({
+    
+    compounds5 = tolower(unlist(strsplit(input$compounds5, split=",")))
+    
+    meta5() %>%
+      filter(compound_name %in% compounds5) %>%
+      inner_join(quant_conc_tbl5()) %>%
+      mutate(compound_name=factor(compound_name,levels=compounds5)) %>%
+      replace_na(list(itsd="peak")) %>%
+      reshape2::dcast(sampleid+compound_name+conc+letter ~ itsd,value.var="peakarea",
+                      fun.aggregate=mean) %>%
+      group_by(sampleid, letter) %>%
+      fill(ITSD) %>%
+      mutate(ITSD=zoo::na.locf(ITSD),
+             norm_peak = peak / ITSD) %>%
+      filter(!grepl("^CC[0-9]",sampleid),
+             grepl(pattern = "[Pp]lasma", sampleid)) %>%
+      left_join(modelstart5()) %>%
+      mutate(quant_val =  (norm_peak - (`(Intercept)`))/slope_value*as.numeric(input$xfactor5)) %>%
+      mutate(sample = str_extract(sampleid, "[Pp]lasma"),
+             qc = str_extract(sampleid, "[Qq][Cc]"),
+             replicate = as.factor(str_extract(sampleid, "[0-9]+")),
+             batch = unique(meta5_1()$batch)) %>%
+      arrange(compound_name) %>%
+      mutate(quant_val = ifelse(quant_val < 0,0,quant_val),
+             quant_val = round(quant_val,2)) %>% 
+      group_by(batch, compound_name) %>%
+      summarise(stdev = sd(quant_val, na.rm = T),
+                average = mean(quant_val, na.rm = T),
+                cv = (stdev / average)*100,
+                upper_limit = average + 2.5*stdev,
+                lower_limit = average - 2.5*stdev
+      ) %>%
+      pivot_longer(-c(batch, compound_name), names_to = "variable", values_to = "value") %>%
+      mutate(variable = factor(variable, levels = c("upper_limit", "average", "lower_limit","stdev","cv")))
+  })
+  
+  # output$TEST <- renderDataTable(
+  #   meta5_4(),
+  #   options = list(pageLength=5)
+  # )
+  
+  # Need another summary dataframe to plot CVs and averages for geom_label
+  meta5_5 <- reactive({
+    
+    compounds5 = tolower(unlist(strsplit(input$compounds5, split=",")))
+    
+    meta5() %>%
+      filter(compound_name %in% compounds5) %>%
+      inner_join(quant_conc_tbl5()) %>%
+      mutate(compound_name=factor(compound_name,levels=compounds5)) %>%
+      replace_na(list(itsd="peak")) %>%
+      reshape2::dcast(sampleid+compound_name+conc+letter ~ itsd,value.var="peakarea",
+                      fun.aggregate=mean) %>%
+      group_by(sampleid, letter) %>%
+      fill(ITSD) %>%
+      mutate(ITSD=zoo::na.locf(ITSD),
+             norm_peak = peak / ITSD) %>%
+      filter(!grepl("^CC[0-9]",sampleid),
+             grepl(pattern = "[Pp]lasma", sampleid)) %>%
+      left_join(modelstart5()) %>%
+      mutate(quant_val =  (norm_peak - (`(Intercept)`))/slope_value*as.numeric(input$xfactor5)) %>%
+      mutate(sample = str_extract(sampleid, "[Pp]lasma"),
+             qc = str_extract(sampleid, "[Qq][Cc]"),
+             replicate = as.factor(str_extract(sampleid, "[0-9]+")),
+             batch = unique(meta5_1()$batch)) %>%
+      arrange(compound_name) %>%
+      mutate(quant_val = ifelse(quant_val < 0,0,quant_val),
+             quant_val = round(quant_val,2)) %>% 
+      group_by(batch, compound_name) %>%
+      summarise(stdev = sd(quant_val, na.rm = T),
+                average = mean(quant_val, na.rm = T),
+                cv = (stdev / average)*100,
+                upper_limit = average + 2.5*stdev,
+                lower_limit = average - 2.5*stdev
+      )
+  })
+  
+  # Build another dataframe to plot
+  meta5_6 <- reactive({
+
+    compounds5 = tolower(unlist(strsplit(input$compounds5, split=",")))
+
+    meta5() %>%
+      filter(compound_name %in% compounds5) %>%
+      inner_join(quant_conc_tbl5()) %>%
+      mutate(compound_name=factor(compound_name,levels=compounds5)) %>%
+      replace_na(list(itsd="peak")) %>%
+      reshape2::dcast(sampleid+compound_name+conc+letter ~ itsd,value.var="peakarea",
+                      fun.aggregate=mean) %>%
+      group_by(sampleid, letter) %>%
+      fill(ITSD) %>%
+      mutate(ITSD=zoo::na.locf(ITSD),
+             norm_peak = peak / ITSD) %>%
+      filter(!grepl("^CC[0-9]",sampleid),
+             grepl(pattern = "[Pp]lasma", sampleid)) %>%
+      left_join(modelstart5()) %>%
+      mutate(quant_val =  (norm_peak - (`(Intercept)`))/slope_value*as.numeric(input$xfactor5)) %>%
+      mutate(sample = str_extract(sampleid, "[Pp]lasma"),
+             qc = str_extract(sampleid, "[Qq][Cc]"),
+             replicate = as.factor(str_extract(sampleid, "[0-9]+")),
+             batch = unique(meta5_1()$batch)) %>%
+      arrange(compound_name) %>%
+      mutate(quant_val = ifelse(quant_val < 0,0,quant_val),
+             quant_val = round(quant_val,2))
+
+  })
+  
+  ba_plasma_plot = reactive({
+    ggplot(meta5_6(), aes(x = batch, y = quant_val, shape = replicate, color = compound_name,
+                          label = ifelse(is.na(quant_val),"NA",paste0(round(quant_val, digits = 1), "ug/mL")))) +
+      geom_point(size = 3) +
+      geom_point(meta5_5(), mapping = aes(x= batch, y = average),
+                 color = "black", shape = 3, size = 3, inherit.aes = F) +
+      geom_hline(subset(meta5_4(), variable %in%
+                          c("average","upper_limit","lower_limit")),
+                 mapping = aes(yintercept = value, linetype = variable))+
+      ggrepel::geom_label_repel(meta5_5(),
+                                mapping = aes(x= batch, y = average,
+                                              label = ifelse(is.na(cv),"NA",paste0(round(cv, digits = 1), "%"))),
+                                label.padding = 0.1,
+                                direction = "y", max.overlaps = 50, min.segment.length = 5,
+                                size = 1.2, inherit.aes = F) +
+      ggrepel::geom_label_repel(label.padding = 0.1,
+                                direction = "x", max.overlaps = 50, min.segment.length = 5,
+                                size = 1.2, show.legend = FALSE) +
+      theme_bw() +
+      theme(panel.grid.minor= element_blank(),
+            panel.grid.major.x = element_blank(),
+            legend.text = element_text(color = "black", size = 8),
+            legend.title = element_text(color = "black", size = 10, hjust = 0.5),
+            legend.position = "top",
+            strip.text=element_text(color = "black", size=5),
+            axis.text =element_text(color = "black", size=8),
+            axis.title = element_text(color = "black", size = 14),
+            plot.title = element_text(color = "black", size = 15, hjust = 0.5, face = "bold"),
+            plot.margin = margin(2,0.5,2,1.1, unit = 'cm')) +
+      ggsci::scale_color_ucscgb() +
+      guides(color = guide_legend(title = "Compound",
+                                  override.aes = list(size = 2.5), ncol = 2,
+                                  title.position="top",
+                                  label.position = "right"), fill = F,
+             shape = guide_legend(title = "Replicate",
+                                  override.aes = list(size = 2.5), ncol = 1,
+                                  title.position="top",
+                                  label.position = "right"),
+             linetype = guide_legend(ncol = 1,
+                                     title.position="top",
+                                     label.position = "right")) +
+      scale_linetype_manual(name = "Metrics", values = c(1, 2, 1),
+                            labels = c("+2.5 SD", "Mean", "-2.5 SD"),
+                            guide = guide_legend(ncol = 1,
+                                                 title.position="top",
+                                                 label.position = "right"))+
+      xlab("\nBatch Number") +
+      ylab("Concentration (ug/mL)\n") +
+      ggtitle("Plasma QC Summary\n") +
+      facet_wrap(~compound_name, nrow = 1)
+  })
+
+  output$ba_plasma_plot <- renderPlot(
+    ba_plasma_plot()
+  )
+  
 
   ## Save report ##
   output$ba_qc_report_download <- downloadHandler(
@@ -3917,6 +4436,7 @@ indole_rawdf2_1 <- reactive({
           ba_qc_plot2() + theme(legend.position = "none"),
           nrow = 2)
       )
+      print(ba_plasma_plot())
       print(
         gridExtra::grid.arrange(
           ba_table_list1())
@@ -4287,6 +4807,205 @@ indole_rawdf2_1 <- reactive({
 
 
 
+  ##### QC Report #####
+  # ITSD Raw Peak Area #
+  
+  # Build a Norm CV dataframe of summary stats
+  rawdf_ba2 <- reactive({
+
+    rawdf_ba() %>%
+      separate(Data.File,into=c("num","date","batch","sampleid","conc"),
+               sep="__") %>%
+      mutate(num = gsub(pattern = "X", replacement = "", num)) %>%
+      filter(itsd == "ITSD",
+             !grepl(pattern = "^CC[0-9]+", sampleid),
+             !grepl(pattern = "^MB", sampleid),
+             !grepl(pattern = "^Hexane", sampleid),
+             !grepl(pattern = "Standard", sampleid)) %>%
+      mutate(peakarea = ifelse(peakarea <= 5000, 5000, peakarea)) %>%
+      group_by(batch, compound_name) %>%
+      summarise(stdev = sd(peakarea),
+                average = mean(peakarea),
+                middle = median(peakarea),
+                cv = stdev / average,
+                cv_med = stdev / median(peakarea)# Don't turn into % here since it will be applied in the y-axis scale
+      )
+  })
+
+
+  ba_norm_plot1 <-function()({
+
+    rawdf_ba() %>%
+      separate(Data.File,into=c("num","date","batch","sampleid","conc"),
+               sep="__") %>%
+      mutate(num = gsub(pattern = "X", replacement = "", num)) %>%
+      filter(itsd == "ITSD") %>%
+      mutate(peakarea = ifelse(peakarea <= 5000, 5000, peakarea),
+             cc_shape = ifelse(grepl("CC[0-9]+", sampleid), "CC Sample", "ITSD")) %>%
+      left_join(rawdf_ba2()) %>%
+      mutate(num = as.numeric(num),
+             flag = ifelse(peakarea > average + (1.5 * stdev) |
+                             peakarea < average - (1.5 * stdev), paste(num,batch,sampleid, sep = "_"), NA)) %>%
+      ggplot(., aes(x = num, y = peakarea, group = compound_name, label = flag)) +
+      geom_point(aes(color = compound_name, shape = cc_shape), fill = "black", alpha = 0.6, size = 2) +
+      geom_line(aes(y = average, color = compound_name)) +
+      geom_line(aes(y = average + 1.5*stdev, color = compound_name), linetype = "dashed") +
+      geom_line(aes(y = average - 1.5*stdev, color = compound_name), linetype = "dashed") +
+      geom_ribbon(aes(ymin = average - stdev, ymax = average + stdev,
+                      fill = compound_name), alpha=0.2) +
+      ggrepel::geom_label_repel(size = 1.2, max.overlaps = Inf,
+                                min.segment.length = 0.1, label.padding = 0.1) +
+      theme_bw()+
+      theme(panel.grid.minor= element_blank(),
+            panel.grid.major.x = element_blank(),
+            legend.text = element_text(color = "black", size = 8),
+            legend.title = element_text(color = "black", size = 10),
+            legend.position = "top",
+            strip.text=element_text(color = "black", size=5),
+            axis.text =element_text(color = "black", size=8),
+            axis.title = element_text(color = "black", size = 10),
+            plot.margin = margin(1,0.5,0,0.6, unit = 'cm')) +
+      ggsci::scale_color_lancet() +
+      ggsci::scale_fill_lancet() +
+      guides(color = guide_legend(title = "Internal Standard Compound",
+                                  override.aes = list(size = 2.5), nrow = 2,
+                                  title.position="top", title.hjust = 0.5,
+                                  label.position = "right"), fill = F,
+             shape = guide_legend(title = "",
+                                  override.aes = list(size = 2.5), nrow = 2,
+                                  title.position="top", title.hjust = 0.5,
+                                  label.position = "right")) +
+      scale_shape_manual(values = c(24,16))+
+      scale_y_continuous(label = scales::scientific) +
+      scale_x_continuous(breaks = seq(0,150,25)) +
+      ylab("Raw Peak Area\n") +
+      xlab("\nInjection Number")+
+      facet_wrap(~compound_name, scales="free_x", nrow = 3)
+  })
+
+  
+  ba_norm_plot2 <-function()({
+
+    rawdf_ba() %>%
+      separate(Data.File,into=c("num","date","batch","sampleid","conc"),
+  sep="__") %>%
+  mutate(num = gsub(pattern = "X", replacement = "", num)) %>%
+  filter(itsd == "ITSD") %>%
+  mutate(peakarea = ifelse(peakarea <= 5000, 5000, peakarea),
+         cc_shape = ifelse(grepl("CC[0-9]+", sampleid), "CC Sample", "ITSD")) %>%
+      left_join(rawdf_ba2()) %>%
+      mutate(num = as.numeric(num),
+             flag = ifelse(peakarea > average + (1.5 * stdev) |
+                             peakarea < average - (1.5 * stdev), paste(num,batch,sampleid, sep = "_"), NA)) %>%
+      ggplot(., aes(x = num, y = peakarea, group = compound_name, label = flag)) +
+      geom_point(aes(color = compound_name, shape = cc_shape), fill = "black", alpha = 0.6, size = 2) +
+      geom_line(aes(y = average, color = compound_name)) +
+      geom_line(aes(y = average + 1.5*stdev, color = compound_name), linetype = "dashed") +
+      geom_line(aes(y = average - 1.5*stdev, color = compound_name), linetype = "dashed") +
+      geom_ribbon(aes(ymin = ifelse(average - stdev <= 1, 1, average - stdev),
+                      ymax = average + stdev,
+                      fill = compound_name), alpha=0.2) +
+      ggrepel::geom_label_repel(size = 1.2, max.overlaps = Inf,
+                                min.segment.length = 0.1, label.padding = 0.1) +
+      theme_bw() +
+      theme(panel.grid.minor= element_blank(),
+            panel.grid.major.x = element_blank(),
+            legend.text = element_text(color = "black", size = 8),
+            legend.title = element_text(color = "black", size = 10),
+            legend.position = "top",
+            strip.text=element_text(color = "black", size=5),
+            axis.text =element_text(color = "black", size=8),
+            axis.title = element_text(color = "black", size = 10),
+            plot.margin = margin(1,0.5,0,0.6, unit = 'cm')) +
+      ggsci::scale_color_lancet() +
+      ggsci::scale_fill_lancet() +
+      guides(color = guide_legend(title = "Internal Standard Compound",
+                                  override.aes = list(size = 2.5), nrow = 2,
+                                  title.position="top", title.hjust = 0.5,
+                                  label.position = "right"), fill = F,
+             shape = guide_legend(title = "",
+                                  override.aes = list(size = 2.5), nrow = 2,
+                                  title.position="top", title.hjust = 0.5,
+                                  label.position = "right")) +
+      scale_shape_manual(values = c(24,16))+
+      ylab("Raw Peak Area\n(log10 scale)") +
+      xlab("\nInjection Number") +
+      # coord_trans(y = "log10") +
+      scale_y_continuous(trans = "log10", labels = scales::scientific)+
+      scale_x_continuous(breaks = seq(0,150,25))+
+      facet_wrap(~compound_name, scales="free_x", nrow = 3)
+  })
+  
+
+  # ITSD CV Percent #
+
+  # Build CV dataframe
+  rawdf_ba2_1 <- reactive({
+
+    rawdf_ba() %>%
+      separate(Data.File,into=c("num","date","batch","sampleid","conc"),
+               sep="__") %>%
+      mutate(num = gsub(pattern = "X", replacement = "", num)) %>%
+      filter(itsd == "ITSD",
+             !grepl(pattern = "^CC[0-9]+", sampleid),
+             !grepl(pattern = "^MB", sampleid),
+             !grepl(pattern = "Hexane", sampleid),
+             !grepl(pattern = "Standard", sampleid)) %>%
+      mutate(peakarea = ifelse(peakarea <= 5000, 5000, peakarea)) %>%
+      group_by(batch, compound_name) %>%
+      summarise(stdev = sd(peakarea),
+                average = mean(peakarea),
+                middle = median(peakarea),
+                cv = stdev / average,
+                cv_med = stdev / median(peakarea)# Don't turn into % here since it will be applied in the y-axis scale
+      ) %>%
+      dplyr::rename(Batch = batch,
+                    `Internal Standard` = compound_name,
+                    StDev = stdev,
+                    Mean = average,
+                    Median = middle,
+                    CV = cv,
+                    `CV Median` = cv_med) %>%
+      mutate(StDev = round(StDev, digits = 0),
+             Mean = round(Mean, digits = 0),
+             Median = round(Median, digits = 0),
+             `CV (%)` = round(CV * 100, digits = 1),
+             `CV Median (%)` = round(`CV Median` * 100, digits = 1)) %>%
+      select(Batch,`Internal Standard`,StDev,Mean,Median,`CV (%)`,`CV Median (%)`)
+  })
+  
+  
+  # Build summary table
+  ba_norm_table_list1 <- function()({
+    gridExtra::tableGrob(rawdf_ba2_1(), rows = NULL, theme = tt)
+  })
+
+  ## Save Report ##
+  output$ba_norm_qc_report_download <- downloadHandler(
+    filename = function(){
+      paste0("BileAcid_QC_Report_",unique(rawdf_ba2()$batch),"_",Sys.Date(),".pdf")
+    },
+    content = function(file) {
+      pdf(file, height = 11, width = 8.5)
+      print(ba_norm_plot1() +
+              xlab("") +
+              ggtitle(paste("Bile Acid Qualitative QC Report\n", unique(rawdf_ba2()$batch))) +
+              theme(plot.title = element_text(color = "black",
+                                              hjust = 0.5,
+                                              size = 20,
+                                              face = "bold"))
+      )
+      
+      print(ba_norm_plot2() + theme(plot.title = element_blank()))
+      
+      print(gridExtra::grid.arrange(
+        ba_norm_table_list1())
+      )
+      dev.off()
+    }
+  )
+  
+  
   
 # Instrument QC tab -----------------------------------------------------------------
   #### Calibration Curve-Slope Plot ####
@@ -4352,7 +5071,7 @@ indole_rawdf2_1 <- reactive({
                 plot.margin = margin(0.5,0.5,0.5,0.5, unit = 'cm')) +
           ggsci::scale_color_locuszoom() +
           xlab("\nBatch Number") +
-          ylab("Calibration Curve Slope (mM)\n") +
+          ylab("Calibration Curve Slope\n") +
           facet_wrap(~itsd, nrow = 1, scales = "free_y") +
           guides(color = guide_legend(title = "Compound",
                                       override.aes = list(size = 2.5), ncol = 1,
@@ -4362,7 +5081,8 @@ indole_rawdf2_1 <- reactive({
       
       return(p())
       
-    } else if (input$method == "Indole") {      finals_paths <- reactive({
+    } else if (input$method == "Indole") {      
+      finals_paths <- reactive({
         list.files(path = "/Volumes/chaubard-lab/shiny_workspace/calibration_metrics/",
                    pattern = input$method, full.names = TRUE)
       })
@@ -4421,7 +5141,7 @@ indole_rawdf2_1 <- reactive({
                 plot.margin = margin(0.5,0.5,0.5,0.5, unit = 'cm')) +
           ggsci::scale_color_igv() +
           xlab("\nBatch Number") +
-          ylab("Calibration Curve Slope (mM)\n") +
+          ylab("Calibration Curve Slope\n") +
           facet_wrap(~itsd, nrow = 3, scales = "free_y") +
           guides(color = guide_legend(title = "Compound",
                                       override.aes = list(size = 2.5), ncol = 1,
@@ -4492,7 +5212,7 @@ indole_rawdf2_1 <- reactive({
                 plot.margin = margin(0.5,0.5,0.5,0.5, unit = 'cm')) +
           ggsci::scale_color_ucscgb() +
           xlab("\nBatch Number") +
-          ylab("Calibration Curve Slope (mM)\n") +
+          ylab("Calibration Curve Slope\n") +
           facet_wrap(~itsd, nrow = 2, scales = "free_y")+
           guides(color = guide_legend(title = "Compound",
                                       override.aes = list(size = 2.5), ncol = 1,
@@ -4507,6 +5227,36 @@ indole_rawdf2_1 <- reactive({
   
   output$slope_qc_plot <- renderPlot(
     slope_qc_plot()
+  )
+  
+  output$slope_qc_plot_download <- downloadHandler(
+    filename = function(){
+      paste0(input$method,"_", "InstrumentQC_CalibrationCurve_", Sys.Date(),".pdf")
+    },
+    content = function(file) {
+      ggsave(file,plot = slope_qc_plot(),
+             width =  if (input$method == "PFBBr") {
+               get_row_col(plasma_qc_plot())[1] + 
+                 length(unique(plasma_qc_plot()$data$batch))*1.25
+             } else if (input$method == "Indole") {
+               get_row_col(plasma_qc_plot())[1]*3.5 + 
+                 length(unique(plasma_qc_plot()$data$batch))*0.5
+             } else {
+               get_row_col(plasma_qc_plot())[1]*2.5 + 
+                 length(unique(plasma_qc_plot()$data$batch))*0.75
+             },
+             height = if (input$method == "PFBBr") {
+               (get_row_col(plasma_qc_plot())[1] + 
+                  length(unique(plasma_qc_plot()$data$batch))*1.25)*0.35
+             } else if (input$method == "Indole") {
+               (get_row_col(plasma_qc_plot())[1]*3.5 + 
+                  length(unique(plasma_qc_plot()$data$batch))*0.5)*0.75
+             } else {
+               (get_row_col(plasma_qc_plot())[1]*2.5 + 
+                  length(unique(plasma_qc_plot()$data$batch))*0.75)*0.5
+             }
+  )
+    }
   )
   
   #### Plasma QC Plot ####
@@ -4619,7 +5369,7 @@ p = reactive({
             axis.text.y =element_text(color = "black", size=8),
             axis.text.x =element_text(color = "black", size=8, angle = 60, hjust = 1, vjust = 1),
             axis.title = element_text(color = "black", size = 12),
-            plot.margin = margin(0.5,0.5,0.5,1, unit = 'cm')) +
+            plot.margin = margin(0.5,0.5,0.5,0.5, unit = 'cm')) +
       ggsci::scale_color_locuszoom() +
       guides(color = guide_legend(title = "Compound",
                                   override.aes = list(size = 2.5), ncol = 1,
@@ -4770,7 +5520,7 @@ return(p())
                                                    title.position="top",
                                                    label.position = "right"))+
         xlab("\nBatch Number") +
-        ylab("Concentration (ng/mL)\n") +
+        ylab("Concentration (ng/uL)\n") +
         facet_wrap(~compound_name, nrow = 3, scales = "free_y")
     })
     
@@ -4909,7 +5659,7 @@ return(p())
                                                    title.position="top",
                                                    label.position = "right"))+
         xlab("\nBatch Number") +
-        ylab("Concentration (mM)\n") +
+        ylab("Concentration (ug/mL)\n") +
         facet_wrap(~compound_name, nrow = 2, scales = "free_y")
     })
 
@@ -4922,7 +5672,35 @@ return(p())
     plasma_qc_plot()
   )
   
-  
+  output$plasma_qc_plot_download <- downloadHandler(
+    filename = function(){
+      paste0(input$method,"_", "InstrumentQC_PlasmaQC_", Sys.Date(),".pdf")
+    },
+    content = function(file) {
+      ggsave(file,plot = plasma_qc_plot(),
+             width =  if (input$method == "PFBBr") {
+               get_row_col(plasma_qc_plot())[1] + 
+                 length(unique(plasma_qc_plot()$data$batch))*1.25
+             } else if (input$method == "Indole") {
+               get_row_col(plasma_qc_plot())[1]*3.5 + 
+                 length(unique(plasma_qc_plot()$data$batch))*0.5
+             } else {
+               get_row_col(plasma_qc_plot())[1]*2.5 + 
+                 length(unique(plasma_qc_plot()$data$batch))*0.75
+             },
+             height = if (input$method == "PFBBr") {
+               (get_row_col(plasma_qc_plot())[1] + 
+                  length(unique(plasma_qc_plot()$data$batch))*1.25)*0.45
+             } else if (input$method == "Indole") {
+               (get_row_col(plasma_qc_plot())[1]*3.5 + 
+                  length(unique(plasma_qc_plot()$data$batch))*0.5)*0.75
+             } else {
+               (get_row_col(plasma_qc_plot())[1]*2.5 + 
+                  length(unique(plasma_qc_plot()$data$batch))*0.75)*0.5
+             }
+             )
+    }
+  )
   
   
   # # TMS normalization tab -------------------------------------------------------
