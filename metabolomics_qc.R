@@ -256,8 +256,8 @@ make_norm_conc_heatmap <- function(df,
 get_indole_conc <- function(conc, compounds,series=11){
   #compounds <- inputcompounds2
   compounds <- "niacin,tyrosine,phenylalanine,kynurenine,Serotonin,anthranilicacid,tryptophan,5HIAA,tryptamine,kynurenicacid,melatonin"
-  series <- 11
-  conc <- "909,454.5,227.25,113.625,56.8125,5.68125,0.568125,0.056813,0.014203,0.003551,0.000888"
+  # series <- 11
+  # conc <- c(909,454.5,227.25,113.625,56.8125,5.68125,0.568125,0.056813,0.014203,0.003551,0.000888)
   
   compounds = unlist(strsplit(compounds, split=","))
   conc = unlist(strsplit(conc,split = ","))
@@ -339,7 +339,7 @@ wddir <- "/Volumes/chaubard-lab/shiny_workspace/csvs/"
 
 ui <- fluidPage(
   # shinythemes::themeSelector(),
-  titlePanel("DFI Metabolomics QC (v1.8.1)"),
+  titlePanel("DFI Metabolomics QC (v1.8.2)"),
   br(),
   
   # CSV file selector -------------------------------------------------------
@@ -480,7 +480,7 @@ ui <- fluidPage(
                            br(),
                            dataTableOutput("conc2"),
                            plotOutput("quant2"),
-                           # dataTableOutput("TEST"),
+                           dataTableOutput("TEST"),
                            # plotOutput("TEST_PLOT",
                            #            height = "800px",
                            #            width = "150%"),
@@ -2560,7 +2560,6 @@ server <- function(input, output, session) {
                 cv = stdev / average,
                 cv_med = stdev / median(peakarea))
   })
-
 
 
   indole_qc_plot1 <-function()({
@@ -5264,7 +5263,7 @@ indole_rawdf2_1 <- reactive({
     
   if (input$method == "PFBBr") {
     finals_paths <- reactive({
-      list.files(path = "/Volumes/chaubard-lab/shiny_workspace/CLIN_Finals/",
+      list.files(path = "/Volumes/chaubard-lab/shiny_workspace/CLIN_Finals_QCs/",
                  pattern = paste0("quant_results.+",input$method,"_CLIN00[9]|","quant_results.+",input$method,"_CLIN0[1-9]."), full.names = TRUE)
     })
     
@@ -5396,7 +5395,7 @@ return(p())
 
   } else if (input$method == "Indole") {
     finals_paths <- reactive({
-      list.files(path = "/Volumes/chaubard-lab/shiny_workspace/CLIN_Finals/",
+      list.files(path = "/Volumes/chaubard-lab/shiny_workspace/CLIN_Finals_QCs/",
                  pattern = paste0("[0-9]+_",input$method,"_Clin00[9]_[Qq]uant_[Ff]inal|[0-9]+_",input$method,"_Clin0[1-9]._[Qq]uant_[Ff]inal"), full.names = TRUE)
     })
     
@@ -5530,7 +5529,7 @@ return(p())
   } else {
     
     finals_paths <- reactive({
-      list.files(path = "/Volumes/chaubard-lab/shiny_workspace/CLIN_Finals/",
+      list.files(path = "/Volumes/chaubard-lab/shiny_workspace/CLIN_Finals_QCs/",
                  pattern = paste0("[0-9]+_",input$method,"_CLIN00[9]_[Qq]uant|[0-9]+_",input$method,"_CLIN0[1-9]._[Qq]uant"), full.names = TRUE)
     })
     
