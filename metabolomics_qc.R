@@ -382,7 +382,7 @@ wddir <- "/Volumes/chaubard-lab/shiny_workspace/csvs/"
 
 ui <- fluidPage(
   # shinythemes::themeSelector(),
-  titlePanel("DFI Metabolomics QC (v1.8.3)"),
+  titlePanel("DFI Metabolomics QC (v1.8.4)"),
   br(),
   
   # CSV file selector -------------------------------------------------------
@@ -486,7 +486,7 @@ ui <- fluidPage(
                            h4("Normalized heatmap"),
                            downloadButton("heatmap_download", "Download PFBBr Normalized Heatmap"),
                            h4("This heatmap shows the log2 fold-change of median-normalized peak areas for each compound. Compounds are clustered on the y-axis and samples are clustered on the x-axis."),
-                           plotOutput("heatmap_plot", 
+                           plotOutput("heatmap_plot",
                                       height = "1000px",
                                       width = "125%"),
                            br(),
@@ -1645,9 +1645,9 @@ server <- function(input, output, session) {
   })
 
 
-  # output$conc_int <- renderDataTable(
-  #   conc_int()
-  # )
+  output$conc_int <- renderDataTable(
+    conc_int()
+  )
 
   #make boxplots:
   raw_boxplots <- reactive({
@@ -1682,8 +1682,11 @@ server <- function(input, output, session) {
       select(-checked) %>%
       left_join(conc_int()) %>%
       left_join(conc_int_heatmap()) %>%
-      mutate(norm_peak = ifelse(is.finite(log((peakarea / med), base = 2)),
-                                log((peakarea / med), base = 2),
+      group_by(compound_name) %>% 
+      mutate(compound_med = median(peakarea)) %>% 
+      ungroup() %>% 
+      mutate(norm_peak = ifelse(is.finite(log((peakarea / compound_med), base = 2)),
+                                log((peakarea / compound_med), base = 2),
                                 (min_peak/10))) %>%
       dplyr::select(sampleid, compound_name, norm_peak) %>%
       spread(compound_name, norm_peak, fill = NA) %>%
@@ -1717,7 +1720,7 @@ server <- function(input, output, session) {
       group_by(sampleid, compound_name) %>%
       summarise(norm_peak = mean(norm_peak)) %>%
       pivot_wider(names_from = compound_name, values_from = norm_peak) %>%
-      # filter_all(all_vars(!is.infinite(.))) %>%
+      filter_all(all_vars(!is.infinite(.))) %>%
       drop_na(.) %>%
       column_to_rownames(., var = "sampleid") %>%
       as.matrix(.) %>%
@@ -1734,6 +1737,64 @@ server <- function(input, output, session) {
     heatmap_plot()
   )
 
+  
+  # #make heatmap dataframe:
+  # heatmap_dataframe <- function()({
+  #   rawdf() %>%
+  #     left_join(conc_filter()) %>%
+  #     replace_na(list(checked="concentrated")) %>%
+  #     filter(conc==checked, is.na(itsd),
+  #            !grepl("(__CC[0-9]+__)", sampleid)) %>%
+  #     select(-checked) %>%
+  #     left_join(conc_int()) %>%
+  #     left_join(conc_int_heatmap()) %>%
+  #     group_by(compound_name) %>% 
+  #     mutate(compound_med = median(peakarea)) %>% 
+  #     ungroup() %>% 
+  #     mutate(norm_peak = ifelse(is.finite(log((peakarea / compound_med), base = 2)),
+  #                               log((peakarea / compound_med), base = 2),
+  #                               (min_peak/10))) %>%
+  #     dplyr::select(sampleid, compound_name, norm_peak) %>%
+  #     spread(compound_name, norm_peak, fill = NA) %>%
+  #     reshape2::melt(id.vars=c("sampleid")) %>%
+  #     dplyr::rename(compound_name=variable,norm_peak=value) %>%
+  #     separate(sampleid,into=c("num","date","batch","sampleid","conc"),
+  #              sep="\\_\\_") %>%
+  #     filter(!is.na(norm_peak)) %>%
+  #     mutate(sampleid = ifelse(sampleid %in%
+  #                                c("PooledQC",
+  #                                  "Pooled_QC",
+  #                                  "SpikedPooledQC",
+  #                                  "Standards",
+  #                                  "BHIQC_[0-9]+",
+  #                                  "MB",
+  #                                  "MB_[0-9]+",
+  #                                  "PlasmaQC",
+  #                                  "Plasma_QC",
+  #                                  "Plasma[0-9]+",
+  #                                  "Hexanes"),
+  #                              paste(num, sampleid, conc, sep = "__"),
+  #                              sampleid)) %>%
+  #     filter(!str_detect(sampleid, "MB"),
+  #            !str_detect(sampleid, "Pooled"),
+  #            !str_detect(sampleid, "BHIQC"),
+  #            !str_detect(sampleid, "Plasma"),
+  #            !str_detect(sampleid, "Hexanes"),
+  #            !grepl("CC[0-9]+", sampleid)) %>%
+  #     dplyr::select(sampleid, compound_name, norm_peak) %>%
+  #     mutate(norm_peak = round(norm_peak,5)) %>%
+  #     group_by(sampleid, compound_name) %>%
+  #     summarise(norm_peak = mean(norm_peak)) %>%
+  #     pivot_wider(names_from = compound_name, values_from = norm_peak) %>%
+  #     filter_all(all_vars(!is.infinite(.))) %>%
+  #     drop_na(.)
+  # })
+  
+  # output$heatmap_dataframe <- renderDataTable(
+  #   heatmap_dataframe()
+  # )
+  
+  
   heatmap_data <- function()({
     rawdf() %>%
       left_join(conc_filter()) %>%
@@ -1741,9 +1802,12 @@ server <- function(input, output, session) {
              !grepl("(__CC[0-9]+__)", sampleid)) %>%
       left_join(conc_int()) %>%
       left_join(conc_int_heatmap()) %>%
-      mutate(norm_peak = ifelse(is.finite(log((peakarea / med), base = 2)),
-                                log((peakarea / med), base = 2),
-                                (min_peak * -20))) %>%
+      group_by(compound_name) %>% 
+      mutate(compound_med = median(peakarea)) %>% 
+      ungroup() %>% 
+      mutate(norm_peak = ifelse(is.finite(log((peakarea / compound_med), base = 2)),
+                                log((peakarea / compound_med), base = 2),
+                                (min_peak/10))) %>%
       dplyr::select(sampleid, compound_name, norm_peak) %>%
       spread(compound_name, norm_peak, fill = NA) %>%
       reshape2::melt(id.vars=c("sampleid")) %>%
@@ -3175,9 +3239,12 @@ heatmap_plot2 <- function()({
       is.na(itsd),
       !grepl("[Cc][Cc][0-9]+", Data.File)) %>%
     left_join(indole_conc_int2()) %>%
-    mutate(norm_peak = ifelse(is.finite(log((peakarea / avg), base = 2)),
-                              log((peakarea / avg), base = 2),
-                              (min_peak * -20)),
+    group_by(compound_name) %>% 
+    mutate(compound_med = median(peakarea)) %>% 
+    ungroup() %>% 
+    mutate(norm_peak = ifelse(is.finite(log((peakarea / compound_med), base = 2)),
+                              log((peakarea / compound_med), base = 2),
+                              (min_peak/10)),
            compound_name=gsub("\\_[0-9]+","",compound_name)) %>%
     separate(Data.File,into=c("num","date","batch","sampleid","conc"),
              sep="__") %>%
@@ -3218,9 +3285,12 @@ heatmap_data2 <- function()({
       is.na(itsd),
       !grepl("[Cc][Cc][0-9]+", Data.File)) %>%
     left_join(indole_conc_int2()) %>%
-    mutate(norm_peak = ifelse(is.finite(log((peakarea / avg), base = 2)),
-                              log((peakarea / avg), base = 2),
-                              (min_peak * -20)),
+    group_by(compound_name) %>% 
+    mutate(compound_med = median(peakarea)) %>% 
+    ungroup() %>% 
+    mutate(norm_peak = ifelse(is.finite(log((peakarea / compound_med), base = 2)),
+                              log((peakarea / compound_med), base = 2),
+                              (min_peak/10)),
            compound_name=gsub("\\_[0-9]+","",compound_name)) %>%
     separate(Data.File,into=c("num","date","batch","sampleid","conc"),
              sep="__") %>%
@@ -4544,9 +4614,12 @@ indole_rawdf2_1 <- reactive({
              !grepl("(CC[0-9]+)", sampleid)) %>%
       select(-checked) %>%
       left_join(conc_int_bile_acid()) %>%
-      mutate(norm_peak = ifelse(is.finite(log((peakarea / med), base = 2)),
-                                log((peakarea / med), base = 2),
-                                (min_peak * -20))) %>%
+      group_by(compound_name) %>% 
+      mutate(compound_med = median(peakarea)) %>% 
+      ungroup() %>% 
+      mutate(norm_peak = ifelse(is.finite(log((peakarea / compound_med), base = 2)),
+                                log((peakarea / compound_med), base = 2),
+                                (min_peak/10))) %>%
       separate(Data.File,into=c("num","date","batch","sampleid","conc"),
                sep="__") %>%
       mutate(sampleid = ifelse(sampleid %in%
@@ -4601,9 +4674,12 @@ indole_rawdf2_1 <- reactive({
              !grepl("(CC[0-9]+)", sampleid)) %>%
       select(-checked) %>%
       left_join(conc_int_bile_acid()) %>%
-      mutate(norm_peak = ifelse(is.finite(log((peakarea / med), base = 2)),
-                                log((peakarea / med), base = 2),
-                                (min_peak * -20))) %>%
+      group_by(compound_name) %>% 
+      mutate(compound_med = median(peakarea)) %>% 
+      ungroup() %>% 
+      mutate(norm_peak = ifelse(is.finite(log((peakarea / compound_med), base = 2)),
+                                log((peakarea / compound_med), base = 2),
+                                (min_peak/10))) %>%
       separate(Data.File,into=c("num","date","batch","sampleid","conc"),
                sep="__") %>%
       mutate(sampleid = ifelse(sampleid %in%
@@ -5826,8 +5902,11 @@ return(p())
       select(-checked) %>%
       left_join(conc_int_tms()) %>%
       left_join(conc_int_heatmap_tms()) %>%
-      mutate(norm_peak = ifelse(is.finite(log((peakarea / avg), base = 2)),
-                                log((peakarea / avg), base = 2),
+      group_by(compound_name) %>% 
+      mutate(compound_med = median(peakarea)) %>% 
+      ungroup() %>% 
+      mutate(norm_peak = ifelse(is.finite(log((peakarea / compound_med), base = 2)),
+                                log((peakarea / compound_med), base = 2),
                                 (min_peak/10))) %>%
       dplyr::select(sampleid, compound_name, norm_peak) %>%
       spread(compound_name, norm_peak, fill = NA) %>%
@@ -5885,9 +5964,12 @@ return(p())
              !grepl("(__CC[0-9]+__)", sampleid)) %>%
       left_join(conc_int_tms()) %>%
       left_join(conc_int_heatmap_tms()) %>%
-      mutate(norm_peak = ifelse(is.finite(log((peakarea / avg), base = 2)),
-                                log((peakarea / avg), base = 2),
-                                (min_peak * -20))) %>%
+      group_by(compound_name) %>% 
+      mutate(compound_med = median(peakarea)) %>% 
+      ungroup() %>% 
+      mutate(norm_peak = ifelse(is.finite(log((peakarea / compound_med), base = 2)),
+                                log((peakarea / compound_med), base = 2),
+                                (min_peak/10))) %>%
       dplyr::select(sampleid, compound_name, norm_peak) %>%
       spread(compound_name, norm_peak, fill = NA) %>%
       reshape2::melt(id.vars=c("sampleid")) %>%
