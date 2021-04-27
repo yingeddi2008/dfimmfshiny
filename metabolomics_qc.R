@@ -219,8 +219,8 @@ readin_meta_csv_single_file_tms <- function(filename,na.value=0,recursive=F){
     reshape2::melt(id.vars=c("sampleid","Data.File",
                              "Acq.Date.Time","filename")) %>%
     dplyr::rename(compound=variable,peakarea=value) %>%
-    mutate(conc=ifelse(grepl("[Ss][Pp][Ll][Ii][Tt]\\d.+",sampleid),"nosplit",
-                       ifelse(grepl("\\_[Nn][Oo][Ss][Pp][Ll][Ii][Tt]",sampleid),"split1to5",
+    mutate(conc=ifelse(grepl("[Ss][Pp][Ll][Ii][Tt]\\d.+",sampleid),"split1to5",
+                       ifelse(grepl("\\_[Nn][Oo][Ss][Pp][Ll][Ii][Tt]",sampleid),"nosplit",
                               "other")),
            compound=as.character(compound),
            itsd=str_extract(compound,pattern="ITSD"),
@@ -382,7 +382,7 @@ wddir <- "/Volumes/chaubard-lab/shiny_workspace/csvs/"
 
 ui <- fluidPage(
   # shinythemes::themeSelector(),
-  titlePanel("DFI Metabolomics QC (v1.8.4)"),
+  titlePanel("DFI Metabolomics QC (v1.8.5)"),
   br(),
   
   # CSV file selector -------------------------------------------------------
@@ -578,7 +578,8 @@ ui <- fluidPage(
                            splitLayout(#cellWidths = c("25%","75%"),
                              # uiOutput("compound_list2"),
                              plotOutput("raw_boxplots2",height="750px")),
-                           # dataTableOutput("TEST"),
+                           dataTableOutput("TESTMAP"),
+                           downloadButton("heatmap_table2", "Download Indole Heatmap Data"),
                            # plotOutput("TEST_PLOT",
                            #            height = "800px",
                            #            width = "150%"),
@@ -589,7 +590,7 @@ ui <- fluidPage(
                                       height = "1000px",
                                       width = "125%"),
                            h4("Intermediate table:"),
-                           #dataTableOutput("conc_int2"),
+                           dataTableOutput("conc_int2"),
                            dataTableOutput("conc_filter2"),
                            h4("Normalized table:"),
                            dataTableOutput("normwide2"),
@@ -621,7 +622,7 @@ ui <- fluidPage(
                          mainPanel(
                            br(),
                            br(),
-                           # dataTableOutput("TEST"),
+                           # dataTableOutput("TEST5"),
                            dataTableOutput("conc5"),
                            #dataTableOutput("conc_tbl5"),
                            #dataTableOutput("cutoff_df5"),
@@ -682,6 +683,8 @@ ui <- fluidPage(
                            # plotOutput("TEST_PLOT",
                            #            height = "800px",
                            #            width = "150%"),
+                           # dataTableOutput("BATEST1"),
+                           # dataTableOutput("BATEST2"),
                            splitLayout(cellWidths = c("25%","75%"),
                                        uiOutput("compound_list_bile_acid"),
                                        plotOutput("raw_boxplots_bile_acid",height="1072px")),
@@ -720,13 +723,13 @@ ui <- fluidPage(
                                                    value=5000)
                          ),
                          mainPanel(
+                           # dataTableOutput("TMSTEST1"),
                            br(),
                            downloadButton("norm_qc_report_download_tms", "Download TMS QC Norm Report", class = "butt"),
                            tags$style(type="text/css", "#norm_qc_report_download_tms {background-color:green;color: white}"),
                            splitLayout(cellWidths = c("25%","75%"),
                                        uiOutput("compound_list_tms"),
-                                       plotOutput("raw_boxplots_tms",height="1980px")),
-                           dataTableOutput("TEST"),
+                                       plotOutput("raw_boxplots_tms",height="3555px")),
                            h4("Normalized heatmap"),
                            downloadButton("heatmap_download_tms", "Download TMS Heatmap"),
                            h4("This heatmap shows the log2 fold-change of median-normalized peak areas for each compound. Compounds are clustered on the y-axis and samples are clustered on the x-axis."),
@@ -969,11 +972,15 @@ server <- function(input, output, session) {
               paste0("/Volumes/chaubard-lab/shiny_workspace/CLIN_Finals_QCs/quant_results_",
                                 gsub("\\.csv","",input$filename),"_",
                                 gsub("\\-","",Sys.Date()),".csv"), row.names=F,quote=F)
-    write.csv(quant_table_dl() %>% filter(!str_detect(sampleid, "MB"),
-                                          !str_detect(sampleid, "Pooled"),
-                                          !str_detect(sampleid, "BHIQC"),
-                                          !str_detect(sampleid, "Plasma"),
-                                          !str_detect(sampleid, "Hexanes"),
+    write.csv(quant_table_dl() %>% filter(!str_detect(sampleid, "[Mm][Bb]"),
+                                          !str_detect(sampleid, "[Pp][Oo][Oo][Ll][Ee][Dd]"),
+                                          !str_detect(sampleid, "[Bb][Hh][Ii][Qq][Cc]"),
+                                          !str_detect(sampleid, "[Pp][Ll][Aa][Ss][Mm][Aa]"),
+                                          !str_detect(sampleid, "[Hh][Ee][Xx][Aa][Nn][Ee][Ss]"),
+                                          !str_detect(sampleid, "[Ss][Tt][Aa][Nn][Dd][Aa][Rr][Dd]"),
+                                          !str_detect(sampleid, "50%_[Mm][Ee][Oo][Hh]"),
+                                          !str_detect(sampleid, "[Ee][Aa]_[Bb][Ll][Aa][Nn][Kk]"),
+                                          !str_detect(sampleid, "50%[Mm][Ee][Oo][Hh]"),
                                           !grepl("CC[0-9]+", sampleid)), 
               paste0("/Volumes/chaubard-lab/shiny_workspace/CLIN_Finals/removed_qcs_quant_results_",
                      gsub("\\.csv","",input$filename), "_",
@@ -1051,11 +1058,15 @@ server <- function(input, output, session) {
         separate(sampleid,into=c("num","date","batch","sampleid","conc"),
                  sep="__") %>% 
         mutate(sampleid_conc= paste(sampleid, conc, sep = "_")) %>% 
-        filter(!str_detect(sampleid, "MB"),
-               !str_detect(sampleid, "Pooled"),
-               !str_detect(sampleid, "BHIQC"),
-               !str_detect(sampleid, "Plasma"),
-               !str_detect(sampleid, "Hexanes"),
+        filter(!str_detect(sampleid, "[Mm][Bb]"),
+               !str_detect(sampleid, "[Pp][Oo][Oo][Ll][Ee][Dd]"),
+               !str_detect(sampleid, "[Bb][Hh][Ii][Qq][Cc]"),
+               !str_detect(sampleid, "[Pp][Ll][Aa][Ss][Mm][Aa]"),
+               !str_detect(sampleid, "[Hh][Ee][Xx][Aa][Nn][Ee][Ss]"),
+               !str_detect(sampleid, "[Ss][Tt][Aa][Nn][Dd][Aa][Rr][Dd]"),
+               !str_detect(sampleid, "50%_[Mm][Ee][Oo][Hh]"),
+               !str_detect(sampleid, "[Ee][Aa]_[Bb][Ll][Aa][Nn][Kk]"),
+               !str_detect(sampleid, "50%[Mm][Ee][Oo][Hh]"),
                !grepl("CC[0-9]+", sampleid)
         ) %>% 
         ggplot(aes(x = sampleid, y = quant_val, fill = compound_name)) +
@@ -1133,11 +1144,15 @@ server <- function(input, output, session) {
         separate(sampleid,into=c("num","date","batch","sampleid","conc"),
                  sep="__") %>% 
         mutate(sampleid_conc = paste(sampleid, conc, sep = "_")) %>% 
-        filter(!str_detect(sampleid, "MB"),
-               !str_detect(sampleid, "Pooled"),
-               !str_detect(sampleid, "BHIQC"),
-               !str_detect(sampleid, "Plasma"),
-               !str_detect(sampleid, "Hexanes"),
+        filter(!str_detect(sampleid, "[Mm][Bb]"),
+               !str_detect(sampleid, "[Pp][Oo][Oo][Ll][Ee][Dd]"),
+               !str_detect(sampleid, "[Bb][Hh][Ii][Qq][Cc]"),
+               !str_detect(sampleid, "[Pp][Ll][Aa][Ss][Mm][Aa]"),
+               !str_detect(sampleid, "[Hh][Ee][Xx][Aa][Nn][Ee][Ss]"),
+               !str_detect(sampleid, "[Ss][Tt][Aa][Nn][Dd][Aa][Rr][Dd]"),
+               !str_detect(sampleid, "50%_[Mm][Ee][Oo][Hh]"),
+               !str_detect(sampleid, "[Ee][Aa]_[Bb][Ll][Aa][Nn][Kk]"),
+               !str_detect(sampleid, "50%[Mm][Ee][Oo][Hh]"),
                !grepl("CC[0-9]+", sampleid))
     }
   })
@@ -1184,10 +1199,15 @@ server <- function(input, output, session) {
       separate(sampleid,into=c("num","date","batch","sampleid","conc"),
                sep="__") %>% 
       filter(itsd == "ITSD",
-             !grepl(pattern = "^CC[0-9]+", sampleid),
-             !grepl(pattern = "^MB", sampleid),
-             !grepl(pattern = "^Hexane", sampleid),
-             !grepl(pattern = "Standard", sampleid)) %>% 
+             !str_detect(sampleid, "[Mm][Bb]"),
+             !str_detect(sampleid, "[Pp][Oo][Oo][Ll][Ee][Dd]"),
+             !str_detect(sampleid, "[Bb][Hh][Ii][Qq][Cc]"),
+             !str_detect(sampleid, "[Pp][Ll][Aa][Ss][Mm][Aa]"),
+             !str_detect(sampleid, "[Hh][Ee][Xx][Aa][Nn][Ee][Ss]"),
+             !str_detect(sampleid, "[Ss][Tt][Aa][Nn][Dd][Aa][Rr][Dd]"),
+             !str_detect(sampleid, "50%_[Mm][Ee][Oo][Hh]"),
+             !str_detect(sampleid, "[Ee][Aa]_[Bb][Ll][Aa][Nn][Kk]"),
+             !str_detect(sampleid, "50%[Mm][Ee][Oo][Hh]")) %>% 
       mutate(peakarea = ifelse(peakarea <= 5000, 5000, peakarea)) %>% 
       group_by(batch, compound_name) %>% 
       summarise(stdev = sd(peakarea),
@@ -1378,9 +1398,15 @@ server <- function(input, output, session) {
                sep="__") %>% 
       filter(itsd == "ITSD",
              !grepl(pattern = "^CC[0-9]+", sampleid),
-             !grepl(pattern = "^MB", sampleid),
-             !grepl(pattern = "Hexane", sampleid),
-             !grepl(pattern = "Standard", sampleid)) %>% 
+             !str_detect(sampleid, "[Mm][Bb]"),
+             !str_detect(sampleid, "[Pp][Oo][Oo][Ll][Ee][Dd]"),
+             !str_detect(sampleid, "[Bb][Hh][Ii][Qq][Cc]"),
+             !str_detect(sampleid, "[Pp][Ll][Aa][Ss][Mm][Aa]"),
+             !str_detect(sampleid, "[Hh][Ee][Xx][Aa][Nn][Ee][Ss]"),
+             !str_detect(sampleid, "[Ss][Tt][Aa][Nn][Dd][Aa][Rr][Dd]"),
+             !str_detect(sampleid, "50%_[Mm][Ee][Oo][Hh]"),
+             !str_detect(sampleid, "[Ee][Aa]_[Bb][Ll][Aa][Nn][Kk]"),
+             !str_detect(sampleid, "50%[Mm][Ee][Oo][Hh]")) %>% 
       mutate(peakarea = ifelse(peakarea <= 5000, 5000, peakarea)) %>% 
       group_by(batch, compound_name) %>% 
       summarise(stdev = sd(peakarea),
@@ -1432,7 +1458,7 @@ server <- function(input, output, session) {
       reshape2::dcast(sampleid+compound_name+conc ~ itsd,value.var="peakarea") %>%
       mutate(norm_peak=peak / ITSD) %>%
       filter(!grepl("\\_CC[0-9]",sampleid),
-             grepl(pattern = "[Pp]lasma", sampleid)) %>%
+             grepl(pattern = "[Pp][Ll][Aa][Ss][Mm][Aa]", sampleid)) %>%
       left_join(modelstart()) %>%
       mutate(quant_val =  (norm_peak - (`(Intercept)`))/slope_value*as.numeric(input$xfactor)) %>%
       separate(sampleid,into=c("num","date","batch","sampleid","conc"),
@@ -1462,7 +1488,7 @@ server <- function(input, output, session) {
       reshape2::dcast(sampleid+compound_name+conc ~ itsd,value.var="peakarea") %>%
       mutate(norm_peak=peak / ITSD) %>%
       filter(!grepl("\\_CC[0-9]",sampleid),
-             grepl(pattern = "[Pp]lasma", sampleid)) %>%
+             grepl(pattern = "[Pp][Ll][Aa][Ss][Mm][Aa]", sampleid)) %>%
       left_join(modelstart()) %>%
       mutate(quant_val =  (norm_peak - (`(Intercept)`))/slope_value*as.numeric(input$xfactor)) %>%
       separate(sampleid,into=c("num","date","batch","sampleid","conc"),
@@ -1490,7 +1516,7 @@ server <- function(input, output, session) {
       reshape2::dcast(sampleid+compound_name+conc ~ itsd,value.var="peakarea") %>%
       mutate(norm_peak=peak / ITSD) %>%
       filter(!grepl("\\_CC[0-9]",sampleid),
-             grepl(pattern = "[Pp]lasma", sampleid)) %>%
+             grepl(pattern = "[Pp][Ll][Aa][Ss][Mm][Aa]", sampleid)) %>%
       left_join(modelstart()) %>%
       mutate(quant_val =  (norm_peak - (`(Intercept)`))/slope_value*as.numeric(input$xfactor)) %>%
       separate(sampleid,into=c("num","date","batch","sampleid","conc"),
@@ -1695,25 +1721,18 @@ server <- function(input, output, session) {
       separate(sampleid,into=c("num","date","batch","sampleid","conc"),
                sep="\\_\\_") %>%
       filter(!is.na(norm_peak)) %>%
-      mutate(sampleid = ifelse(sampleid %in%
-                                 c("PooledQC",
-                                   "Pooled_QC",
-                                   "SpikedPooledQC",
-                                   "Standards",
-                                   "BHIQC_[0-9]+",
-                                   "MB",
-                                   "MB_[0-9]+",
-                                   "PlasmaQC",
-                                   "Plasma_QC",
-                                   "Plasma[0-9]+",
-                                   "Hexanes"),
+      mutate(sampleid = ifelse(str_detect(sampleid, "[Mm][Bb]|[Pp][Oo][Oo][Ll][Ee][Dd]|[Bb][Hh][Ii][Qq][Cc]|[Pp][Ll][Aa][Ss][Mm][Aa]|[Hh][Ee][Xx][Aa][Nn][Ee][Ss]|[Ss][Tt][Aa][Nn][Dd][Aa][Rr][Dd]|50%_[Mm][Ee][Oo][Hh]|[Ee][Aa]_[Bb][Ll][Aa][Nn][Kk]|50%[Mm][Ee][Oo][hh]"),
                                paste(num, sampleid, conc, sep = "__"),
                                sampleid)) %>%
-      filter(!str_detect(sampleid, "MB"),
-             !str_detect(sampleid, "Pooled"),
-             !str_detect(sampleid, "BHIQC"),
-             !str_detect(sampleid, "Plasma"),
-             !str_detect(sampleid, "Hexanes"),
+      filter(!str_detect(sampleid, "[Mm][Bb]"),
+             !str_detect(sampleid, "[Pp][Oo][Oo][Ll][Ee][Dd]"),
+             !str_detect(sampleid, "[Bb][Hh][Ii][Qq][Cc]"),
+             !str_detect(sampleid, "[Pp][Ll][Aa][Ss][Mm][Aa]"),
+             !str_detect(sampleid, "[Hh][Ee][Xx][Aa][Nn][Ee][Ss]"),
+             !str_detect(sampleid, "[Ss][Tt][Aa][Nn][Dd][Aa][Rr][Dd]"),
+             !str_detect(sampleid, "50%_[Mm][Ee][Oo][Hh]"),
+             !str_detect(sampleid, "[Ee][Aa]_[Bb][Ll][Aa][Nn][Kk]"),
+             !str_detect(sampleid, "50%[Mm][Ee][Oo][Hh]"),
              !grepl("CC[0-9]+", sampleid)) %>%
       dplyr::select(sampleid, compound_name, norm_peak) %>%
       mutate(norm_peak = round(norm_peak,5)) %>%
@@ -1815,18 +1834,7 @@ server <- function(input, output, session) {
       separate(sampleid,into=c("num","date","batch","sampleid","conc"),
                sep="\\_\\_") %>%
       filter(!is.na(norm_peak)) %>%
-      mutate(sampleid = ifelse(sampleid %in%
-                                 c("PooledQC",
-                                   "Pooled_QC",
-                                   "SpikedPooledQC",
-                                   "Standards",
-                                   "BHIQC_[0-9]+",
-                                   "MB",
-                                   "MB_[0-9]+",
-                                   "PlasmaQC",
-                                   "Plasma_QC",
-                                   "Plasma[0-9]+",
-                                   "Hexanes"),
+      mutate(sampleid = ifelse(str_detect(sampleid, "[Mm][Bb]|[Pp][Oo][Oo][Ll][Ee][Dd]|[Bb][Hh][Ii][Qq][Cc]|[Pp][Ll][Aa][Ss][Mm][Aa]|[Hh][Ee][Xx][Aa][Nn][Ee][Ss]|[Ss][Tt][Aa][Nn][Dd][Aa][Rr][Dd]|50%_[Mm][Ee][Oo][Hh]|[Ee][Aa]_[Bb][Ll][Aa][Nn][Kk]|50%[Mm][Ee][Oo][hh]"),
                                paste(num, sampleid, conc, sep = "__"),
                                sampleid)) %>%
       dplyr::select(sampleid, compound_name, norm_peak) %>%
@@ -1925,18 +1933,7 @@ server <- function(input, output, session) {
         separate(sampleid,into=c("num","date","batch","sampleid","conc"),
                  sep="__") %>%
         filter(!is.na(norm_peak)) %>%
-        mutate(sampleid = ifelse(sampleid %in%
-                                   c("PooledQC",
-                                     "Pooled_QC",
-                                     "SpikedPooledQC",
-                                     "Standards",
-                                     "BHIQC_[0-9]+",
-                                     "MB",
-                                     "MB_[0-9]+",
-                                     "PlasmaQC",
-                                     "Plasma_QC",
-                                     "Plasma[0-9]+",
-                                     "Hexanes"),
+        mutate(sampleid = ifelse(str_detect(sampleid, "[Mm][Bb]|[Pp][Oo][Oo][Ll][Ee][Dd]|[Bb][Hh][Ii][Qq][Cc]|[Pp][Ll][Aa][Ss][Mm][Aa]|[Hh][Ee][Xx][Aa][Nn][Ee][Ss]|[Ss][Tt][Aa][Nn][Dd][Aa][Rr][Dd]|50%_[Mm][Ee][Oo][Hh]|[Ee][Aa]_[Bb][Ll][Aa][Nn][Kk]|50%[Mm][Ee][Oo][hh]"),
                                  paste(num, sampleid, conc, sep = "__"),
                                  sampleid)) %>%
         dplyr::select(sampleid, compound_name, norm_peak) %>%
@@ -1961,25 +1958,19 @@ server <- function(input, output, session) {
         dplyr::rename(compound_name=variable,norm_peak=value) %>%
         separate(sampleid,into=c("num","date","batch","sampleid","conc"),
                  sep="__") %>%
-        mutate(sampleid = ifelse(sampleid %in% c("PooledQC",
-                                                 "Pooled_QC",
-                                                 "SpikedPooledQC",
-                                                 "Standards",
-                                                 "BHIQC_[0-9]+",
-                                                 "MB",
-                                                 "MB_[0-9]+",
-                                                 "PlasmaQC",
-                                                 "Plasma_QC",
-                                                 "Plasma[0-9]+",
-                                                 "Hexanes"),
+        mutate(sampleid = ifelse(str_detect(sampleid, "[Mm][Bb]|[Pp][Oo][Oo][Ll][Ee][Dd]|[Bb][Hh][Ii][Qq][Cc]|[Pp][Ll][Aa][Ss][Mm][Aa]|[Hh][Ee][Xx][Aa][Nn][Ee][Ss]|[Ss][Tt][Aa][Nn][Dd][Aa][Rr][Dd]|50%_[Mm][Ee][Oo][Hh]|[Ee][Aa]_[Bb][Ll][Aa][Nn][Kk]|50%[Mm][Ee][Oo][hh]"),
                                  paste(num, sampleid, conc, sep = "__"),
                                  sampleid)) %>%
         filter(!is.na(norm_peak)) %>%
-        filter(!str_detect(sampleid, "MB"),
-               !str_detect(sampleid, "Pooled"),
-               !str_detect(sampleid, "BHIQC"),
-               !str_detect(sampleid, "Plasma"),
-               !str_detect(sampleid, "Hexanes"),
+        filter(!str_detect(sampleid, "[Mm][Bb]"),
+               !str_detect(sampleid, "[Pp][Oo][Oo][Ll][Ee][Dd]"),
+               !str_detect(sampleid, "[Bb][Hh][Ii][Qq][Cc]"),
+               !str_detect(sampleid, "[Pp][Ll][Aa][Ss][Mm][Aa]"),
+               !str_detect(sampleid, "[Hh][Ee][Xx][Aa][Nn][Ee][Ss]"),
+               !str_detect(sampleid, "[Ss][Tt][Aa][Nn][Dd][Aa][Rr][Dd]"),
+               !str_detect(sampleid, "50%_[Mm][Ee][Oo][Hh]"),
+               !str_detect(sampleid, "[Ee][Aa]_[Bb][Ll][Aa][Nn][Kk]"),
+               !str_detect(sampleid, "50%[Mm][Ee][Oo][Hh]"),
                !grepl("CC[0-9]+", sampleid)
         ) %>%
         dplyr::select(num,sampleid, compound_name, norm_peak) %>%
@@ -2437,11 +2428,15 @@ server <- function(input, output, session) {
                 paste0("/Volumes/chaubard-lab/shiny_workspace/CLIN_Finals_QCs/quant_results_",
                        gsub("\\.csv","",input$filename),"_",
                        gsub("\\-","",Sys.Date()),".csv"), row.names=F,quote=F)
-      write.csv(quant_table_dl2() %>% filter(!str_detect(sampleid, "MB"),
-                                            !str_detect(sampleid, "Pooled"),
-                                            !str_detect(sampleid, "BHIQC"),
-                                            !str_detect(sampleid, "Plasma"),
-                                            !str_detect(sampleid, "Hexanes"),
+      write.csv(quant_table_dl2() %>% filter(!str_detect(sampleid, "[Mm][Bb]"),
+                                             !str_detect(sampleid, "[Pp][Oo][Oo][Ll][Ee][Dd]"),
+                                             !str_detect(sampleid, "[Bb][Hh][Ii][Qq][Cc]"),
+                                             !str_detect(sampleid, "[Pp][Ll][Aa][Ss][Mm][Aa]"),
+                                             !str_detect(sampleid, "[Hh][Ee][Xx][Aa][Nn][Ee][Ss]"),
+                                             !str_detect(sampleid, "[Ss][Tt][Aa][Nn][Dd][Aa][Rr][Dd]"),
+                                             !str_detect(sampleid, "50%_[Mm][Ee][Oo][Hh]"),
+                                             !str_detect(sampleid, "[Ee][Aa]_[Bb][Ll][Aa][Nn][Kk]"),
+                                             !str_detect(sampleid, "50%[Mm][Ee][Oo][Hh]"),
                                             !grepl("CC[0-9]+", sampleid)), 
                 paste0("/Volumes/chaubard-lab/shiny_workspace/CLIN_Finals/removed_qcs_quant_results_",
                        gsub("\\.csv","",input$filename), "_",
@@ -2521,11 +2516,15 @@ server <- function(input, output, session) {
         separate(Data.File,into=c("num","date","batch","sampleid","conc"),
                  sep="\\_\\_") %>% 
         mutate(sampleid_conc= paste(sampleid, conc, sep = "_")) %>% 
-        filter(!str_detect(sampleid, "MB"),
-               !str_detect(sampleid, "Pooled"),
-               !str_detect(sampleid, "BHIQC"),
-               !str_detect(sampleid, "Plasma"),
-               !str_detect(sampleid, "Hexanes"),
+        filter(!str_detect(sampleid, "[Mm][Bb]"),
+               !str_detect(sampleid, "[Pp][Oo][Oo][Ll][Ee][Dd]"),
+               !str_detect(sampleid, "[Bb][Hh][Ii][Qq][Cc]"),
+               !str_detect(sampleid, "[Pp][Ll][Aa][Ss][Mm][Aa]"),
+               !str_detect(sampleid, "[Hh][Ee][Xx][Aa][Nn][Ee][Ss]"),
+               !str_detect(sampleid, "[Ss][Tt][Aa][Nn][Dd][Aa][Rr][Dd]"),
+               !str_detect(sampleid, "50%_[Mm][Ee][Oo][Hh]"),
+               !str_detect(sampleid, "[Ee][Aa]_[Bb][Ll][Aa][Nn][Kk]"),
+               !str_detect(sampleid, "50%[Mm][Ee][Oo][Hh]"),
                !grepl("CC[0-9]+", sampleid)
         ) %>% 
         ggplot(aes(x = sampleid, y = quant_val, fill = compound_name)) +
@@ -2601,11 +2600,15 @@ server <- function(input, output, session) {
         separate(Data.File,into=c("num","date","batch","sampleid","conc"),
                  sep="\\_\\_") %>% 
         mutate(sampleid_conc = paste(sampleid, conc, sep = "_")) %>% 
-        filter(!str_detect(sampleid, "MB"),
-               !str_detect(sampleid, "Pooled"),
-               !str_detect(sampleid, "BHIQC"),
-               !str_detect(sampleid, "Plasma"),
-               !str_detect(sampleid, "Hexanes"),
+        filter(!str_detect(sampleid, "[Mm][Bb]"),
+               !str_detect(sampleid, "[Pp][Oo][Oo][Ll][Ee][Dd]"),
+               !str_detect(sampleid, "[Bb][Hh][Ii][Qq][Cc]"),
+               !str_detect(sampleid, "[Pp][Ll][Aa][Ss][Mm][Aa]"),
+               !str_detect(sampleid, "[Hh][Ee][Xx][Aa][Nn][Ee][Ss]"),
+               !str_detect(sampleid, "[Ss][Tt][Aa][Nn][Dd][Aa][Rr][Dd]"),
+               !str_detect(sampleid, "50%_[Mm][Ee][Oo][Hh]"),
+               !str_detect(sampleid, "[Ee][Aa]_[Bb][Ll][Aa][Nn][Kk]"),
+               !str_detect(sampleid, "50%[Mm][Ee][Oo][Hh]"),
                !grepl("CC[0-9]+", sampleid))
     }
   })
@@ -2993,7 +2996,7 @@ server <- function(input, output, session) {
       mutate(#peak = ifelse(peak <= 10000,0,peak),
         norm_peak=peak / ITSD) %>%
       filter(!grepl("\\_[Cc][Cc][0-9]",Data.File),
-             grepl(pattern = "[Pp]lasma", Data.File)) %>%
+             grepl(pattern = "[Pp][Ll][Aa][Ss][Mm][Aa]", Data.File)) %>%
       left_join(modelstart2()) %>%
       mutate(quant_val =  (norm_peak - (`(Intercept)`))/slope_value) %>%
       separate(Data.File,into=c("num","date","batch","sampleid","conc"),
@@ -3053,12 +3056,12 @@ server <- function(input, output, session) {
       mutate(#peak = ifelse(peak <= 10000,0,peak),
         norm_peak=peak / ITSD) %>%
       filter(!grepl("\\_[Cc][Cc][0-9]",Data.File),
-             grepl(pattern = "[Pp]lasma", Data.File)) %>%
+             grepl(pattern = "[Pp][Ll][Aa][Ss][Mm][Aa]", Data.File)) %>%
       left_join(modelstart2()) %>%
       mutate(quant_val =  (norm_peak - (`(Intercept)`))/slope_value) %>%
       separate(Data.File,into=c("num","date","batch","sampleid","conc"),
                sep="__") %>% 
-      mutate(sample = str_extract(sampleid, "[Pp]lasma"),
+      mutate(sample = str_extract(sampleid, "[Pp][Ll][Aa][Ss][Mm][Aa]"),
              qc = str_extract(sampleid, "[Qq][Cc]"),
              replicate = as.factor(str_extract(sampleid, "[0-9]+"))) %>% 
       arrange(compound_name) %>%
@@ -3255,13 +3258,15 @@ heatmap_plot2 <- function()({
            sampleid = gsub(pattern = "X", replacement = "", sampleid)) %>%
     dplyr::select(sampleid, compound_name, norm_peak) %>%
     pivot_wider(names_from = compound_name, values_from = norm_peak, values_fill = NA) %>%
-    filter(!str_detect(sampleid, "MB"),
-           !str_detect(sampleid, "Pooled"),
-           !str_detect(sampleid, "BHIQC"),
-           !str_detect(sampleid, "Plasma"),
-           !str_detect(sampleid, "plasma"),
-           !str_detect(sampleid, "Hexanes"),
-           !str_detect(sampleid, "Standards")) %>%
+    filter(!str_detect(sampleid, "[Mm][Bb]"),
+           !str_detect(sampleid, "[Pp][Oo][Oo][Ll][Ee][Dd]"),
+           !str_detect(sampleid, "[Bb][Hh][Ii][Qq][Cc]"),
+           !str_detect(sampleid, "[Pp][Ll][Aa][Ss][Mm][Aa]"),
+           !str_detect(sampleid, "[Hh][Ee][Xx][Aa][Nn][Ee][Ss]"),
+           !str_detect(sampleid, "[Ss][Tt][Aa][Nn][Dd][Aa][Rr][Dd]"),
+           !str_detect(sampleid, "50%_[Mm][Ee][Oo][Hh]"),
+           !str_detect(sampleid, "[Ee][Aa]_[Bb][Ll][Aa][Nn][Kk]"),
+           !str_detect(sampleid, "50%[Mm][Ee][Oo][Hh]")) %>%
     drop_na(.) %>%
     column_to_rownames(., var = "sampleid") %>%
     as.matrix(.) %>%
@@ -3274,11 +3279,66 @@ heatmap_plot2 <- function()({
     )
 })
 
+
 output$heatmap_plot2<- renderPlot(
   heatmap_plot2()
 )
 
 heatmap_data2 <- function()({
+  indole_rawdf() %>%
+    mutate(Data.File=as.character(Data.File)) %>%
+    filter(#conc==checked,
+      is.na(itsd),
+      !grepl("[Cc][Cc][0-9]+", Data.File)) %>%
+    left_join(indole_conc_int2()) %>%
+    group_by(compound_name) %>%
+    mutate(compound_med = median(peakarea)) %>%
+    ungroup() %>%
+    mutate(norm_peak = ifelse(is.finite(log((peakarea / compound_med), base = 2)),
+                              log((peakarea / compound_med), base = 2),
+                              (min_peak/10)),
+           compound_name=gsub("\\_[0-9]+","",compound_name)) %>%
+    separate(Data.File,into=c("num","date","batch","sampleid","conc"),
+             sep="__") %>%
+    dplyr::select(num, date, batch, sampleid, conc, compound_name, norm_peak) %>%
+    ungroup() %>%
+    add_count(date,batch,sampleid, compound_name, conc) %>%
+    mutate(sampleid = ifelse(n > 1, paste(num, sampleid, sep = "__"), sampleid),
+           sampleid = gsub(pattern = "X", replacement = "", sampleid)) %>%
+    dplyr::select(sampleid, compound_name, norm_peak) %>%
+    pivot_wider(names_from = compound_name, values_from = norm_peak, values_fill = NA) %>%
+    filter(!str_detect(sampleid, "[Mm][Bb]"),
+           !str_detect(sampleid, "[Pp][Oo][Oo][Ll][Ee][Dd]"),
+           !str_detect(sampleid, "[Bb][Hh][Ii][Qq][Cc]"),
+           !str_detect(sampleid, "[Pp][Ll][Aa][Ss][Mm][Aa]"),
+           !str_detect(sampleid, "[Hh][Ee][Xx][Aa][Nn][Ee][Ss]"),
+           !str_detect(sampleid, "[Ss][Tt][Aa][Nn][Dd][Aa][Rr][Dd]"),
+           !str_detect(sampleid, "50%_[Mm][Ee][Oo][Hh]"),
+           !str_detect(sampleid, "[Ee][Aa]_[Bb][Ll][Aa][Nn][Kk]"),
+           !str_detect(sampleid, "50%[Mm][Ee][Oo][Hh]")) %>%
+    drop_na(.) %>%
+    column_to_rownames(., var = "sampleid") %>%
+    as.matrix(.) %>%
+    t(.)
+})
+
+output$heatmap_download2 <- downloadHandler(
+  filename = function(){
+    paste0("normalized_heatmap_",input$filename,"_",Sys.Date(),".pdf")
+  },
+  content = function(file) {
+    pdf(file,
+        height = nrow(heatmap_data2()) / (nrow(heatmap_data2())*0.075),
+        width = (ncol(heatmap_data2()) / (ncol(heatmap_data2())*0.07))+1.5
+    )
+    heatmap_plot2()
+    dev.off()
+  },
+  contentType = 'PDF'
+)
+
+#make heatmap:
+heatmap_table <- function()({
   indole_rawdf() %>%
     mutate(Data.File=as.character(Data.File)) %>%
     filter(#conc==checked,
@@ -3301,34 +3361,37 @@ heatmap_data2 <- function()({
            sampleid = gsub(pattern = "X", replacement = "", sampleid)) %>%
     dplyr::select(sampleid, compound_name, norm_peak) %>%
     pivot_wider(names_from = compound_name, values_from = norm_peak, values_fill = NA) %>%
-    filter(!str_detect(sampleid, "MB"),
-           !str_detect(sampleid, "Pooled"),
-           !str_detect(sampleid, "BHIQC"),
-           !str_detect(sampleid, "Plasma"),
-           !str_detect(sampleid, "plasma"),
-           !str_detect(sampleid, "Hexanes"),
-           !str_detect(sampleid, "Standards")) %>%
+    filter(!str_detect(sampleid, "[Mm][Bb]"),
+           !str_detect(sampleid, "[Pp][Oo][Oo][Ll][Ee][Dd]"),
+           !str_detect(sampleid, "[Bb][Hh][Ii][Qq][Cc]"),
+           !str_detect(sampleid, "[Pp][Ll][Aa][Ss][Mm][Aa]"),
+           !str_detect(sampleid, "[Hh][Ee][Xx][Aa][Nn][Ee][Ss]"),
+           !str_detect(sampleid, "[Ss][Tt][Aa][Nn][Dd][Aa][Rr][Dd]"),
+           !str_detect(sampleid, "50%_[Mm][Ee][Oo][Hh]"),
+           !str_detect(sampleid, "[Ee][Aa]_[Bb][Ll][Aa][Nn][Kk]"),
+           !str_detect(sampleid, "50%[Mm][Ee][Oo][Hh]")) %>%
     drop_na(.) %>%
     column_to_rownames(., var = "sampleid") %>%
     as.matrix(.) %>%
     t(.)
 })
 
-output$heatmap_download2 <- downloadHandler(
-  filename = function(){
-    paste0("normalized_heatmap_",input$filename,"_",Sys.Date(),".pdf")
-  },
-  content = function(file) {
-    pdf(file,
-        height = nrow(heatmap_data2()) / (nrow(heatmap_data2())*0.075),
-        width = (ncol(heatmap_data2()) / (ncol(heatmap_data2())*0.07))+1.5
-    )
-    heatmap_plot2()
-    dev.off()
-  },
-  contentType = 'PDF'
-)
 
+# output$TESTMAP <- renderDataTable(
+#   heatmap_table()
+# )
+
+output$heatmap_table2 <- downloadHandler(
+  
+  filename = function(){
+    paste0("heatmap_table",input$filename,"_",Sys.Date(),".csv")
+  },
+  
+  content = function(file) {
+    write.csv(heatmap_table(),file,
+              row.names=T,quote=F)
+  }
+)
 
 indole_subset_conc2 <- reactive({
   indole_rawdf()
@@ -3369,18 +3432,7 @@ normwide2 <- reactive({
       dplyr::rename(compound_name=variable,norm_peak=value) %>%
       separate(Data.File,into=c("num","date","batch","sampleid","conc"),
                sep="\\_\\_") %>%
-      mutate(sampleid = ifelse(sampleid %in%
-                                 c("PooledQC",
-                                   "Pooled_QC",
-                                   "SpikedPooledQC",
-                                   "Standards",
-                                   "BHIQC_[0-9]+",
-                                   "MB",
-                                   "MB_[0-9]+",
-                                   "PlasmaQC",
-                                   "Plasma_QC",
-                                   "Plasma[0-9]+",
-                                   "Hexanes"),
+      mutate(sampleid = ifelse(str_detect(sampleid, "[Mm][Bb]|[Pp][Oo][Oo][Ll][Ee][Dd]|[Bb][Hh][Ii][Qq][Cc]|[Pp][Ll][Aa][Ss][Mm][Aa]|[Hh][Ee][Xx][Aa][Nn][Ee][Ss]|[Ss][Tt][Aa][Nn][Dd][Aa][Rr][Dd]|50%_[Mm][Ee][Oo][Hh]|[Ee][Aa]_[Bb][Ll][Aa][Nn][Kk]|50%[Mm][Ee][Oo][hh]"),
                                paste(num, sampleid, conc, sep = "__"),
                                sampleid)) %>%
       mutate(sampleid = gsub(pattern = "conc.d", replacement = "conc", sampleid)) %>%
@@ -3411,13 +3463,15 @@ normwide2 <- reactive({
       reshape2::dcast(num+sampleid ~ compound_name,value.var="norm_peak",fun.aggregate=mean) %>%
       arrange(num) %>%
       select(-num) %>%
-      filter(!str_detect(sampleid, "MB"),
-             !str_detect(sampleid, "Pooled"),
-             !str_detect(sampleid, "BHIQC"),
-             !str_detect(sampleid, "Plasma"),
-             !str_detect(sampleid, "plasma"),
-             !str_detect(sampleid, "Hexanes"),
-             !str_detect(sampleid, "Standards"))
+      filter(!str_detect(sampleid, "[Mm][Bb]"),
+             !str_detect(sampleid, "[Pp][Oo][Oo][Ll][Ee][Dd]"),
+             !str_detect(sampleid, "[Bb][Hh][Ii][Qq][Cc]"),
+             !str_detect(sampleid, "[Pp][Ll][Aa][Ss][Mm][Aa]"),
+             !str_detect(sampleid, "[Hh][Ee][Xx][Aa][Nn][Ee][Ss]"),
+             !str_detect(sampleid, "[Ss][Tt][Aa][Nn][Dd][Aa][Rr][Dd]"),
+             !str_detect(sampleid, "50%_[Mm][Ee][Oo][Hh]"),
+             !str_detect(sampleid, "[Ee][Aa]_[Bb][Ll][Aa][Nn][Kk]"),
+             !str_detect(sampleid, "50%[Mm][Ee][Oo][Hh]"))
   }
 })
 
@@ -3857,11 +3911,15 @@ indole_rawdf2_1 <- reactive({
                 paste0("/Volumes/chaubard-lab/shiny_workspace/CLIN_Finals_QCs/quant_results_",
                        gsub("\\.csv","",input$filename),"_",
                        gsub("\\-","",Sys.Date()),".csv"), row.names=F,quote=F)
-      write.csv(quant_table_dl5() %>% filter(!str_detect(sampleid, "MB"),
-                                            !str_detect(sampleid, "Pooled"),
-                                            !str_detect(sampleid, "BHIQC"),
-                                            !str_detect(sampleid, "Plasma"),
-                                            !str_detect(sampleid, "Hexanes"),
+      write.csv(quant_table_dl5() %>% filter(!str_detect(sampleid, "[Mm][Bb]"),
+                                             !str_detect(sampleid, "[Pp][Oo][Oo][Ll][Ee][Dd]"),
+                                             !str_detect(sampleid, "[Bb][Hh][Ii][Qq][Cc]"),
+                                             !str_detect(sampleid, "[Pp][Ll][Aa][Ss][Mm][Aa]"),
+                                             !str_detect(sampleid, "[Hh][Ee][Xx][Aa][Nn][Ee][Ss]"),
+                                             !str_detect(sampleid, "[Ss][Tt][Aa][Nn][Dd][Aa][Rr][Dd]"),
+                                             !str_detect(sampleid, "50%_[Mm][Ee][Oo][Hh]"),
+                                             !str_detect(sampleid, "[Ee][Aa]_[Bb][Ll][Aa][Nn][Kk]"),
+                                             !str_detect(sampleid, "50%[Mm][Ee][Oo][Hh]"),
                                             !grepl("CC[0-9]+", sampleid)), 
                 paste0("/Volumes/chaubard-lab/shiny_workspace/CLIN_Finals/removed_qcs_quant_results_",
                        gsub("\\.csv","",input$filename), "_",
@@ -3912,12 +3970,15 @@ indole_rawdf2_1 <- reactive({
         mutate(quant_val = ifelse(quant_val < 0,0,quant_val),
                quant_val = round(quant_val,2)) %>%
         select(sampleid, compound_name, quant_val) %>%
-        filter(!str_detect(sampleid, "MB"),
-               !str_detect(sampleid, "Pooled"),
-               !str_detect(sampleid, "BHIQC"),
-               !str_detect(sampleid, "Plasma"),
-               !str_detect(sampleid, "Hexanes"),
-               !str_detect(sampleid, "Standards"),
+        filter(!str_detect(sampleid, "[Mm][Bb]"),
+               !str_detect(sampleid, "[Pp][Oo][Oo][Ll][Ee][Dd]"),
+               !str_detect(sampleid, "[Bb][Hh][Ii][Qq][Cc]"),
+               !str_detect(sampleid, "[Pp][Ll][Aa][Ss][Mm][Aa]"),
+               !str_detect(sampleid, "[Hh][Ee][Xx][Aa][Nn][Ee][Ss]"),
+               !str_detect(sampleid, "[Ss][Tt][Aa][Nn][Dd][Aa][Rr][Dd]"),
+               !str_detect(sampleid, "50%_[Mm][Ee][Oo][Hh]"),
+               !str_detect(sampleid, "[Ee][Aa]_[Bb][Ll][Aa][Nn][Kk]"),
+               !str_detect(sampleid, "50%[Mm][Ee][Oo][Hh]"),
                !grepl("CC[0-9]+", sampleid))
     }
   })
@@ -3995,12 +4056,15 @@ indole_rawdf2_1 <- reactive({
         mutate(quant_val = ifelse(quant_val < 0,0,quant_val),
                quant_val = round(quant_val,2)) %>%
         select(sampleid, compound_name, quant_val) %>%
-        filter(!str_detect(sampleid, "MB"),
-               !str_detect(sampleid, "Pooled"),
-               !str_detect(sampleid, "BHIQC"),
-               !str_detect(sampleid, "Plasma"),
-               !str_detect(sampleid, "Hexanes"),
-               !str_detect(sampleid, "Standards"),
+        filter(!str_detect(sampleid, "[Mm][Bb]"),
+               !str_detect(sampleid, "[Pp][Oo][Oo][Ll][Ee][Dd]"),
+               !str_detect(sampleid, "[Bb][Hh][Ii][Qq][Cc]"),
+               !str_detect(sampleid, "[Pp][Ll][Aa][Ss][Mm][Aa]"),
+               !str_detect(sampleid, "[Hh][Ee][Xx][Aa][Nn][Ee][Ss]"),
+               !str_detect(sampleid, "[Ss][Tt][Aa][Nn][Dd][Aa][Rr][Dd]"),
+               !str_detect(sampleid, "50%_[Mm][Ee][Oo][Hh]"),
+               !str_detect(sampleid, "[Ee][Aa]_[Bb][Ll][Aa][Nn][Kk]"),
+               !str_detect(sampleid, "50%[Mm][Ee][Oo][Hh]"),
                !grepl("CC[0-9]+", sampleid)
         ) %>%
         ggplot(aes(x = sampleid, y = quant_val, fill = compound_name)) +
@@ -4071,7 +4135,8 @@ indole_rawdf2_1 <- reactive({
       inner_join(., quant_conc_tbl5(), by = c("compound_name", "conc")) %>%
       separate(Data.File,into=c("num","date","batch","sampleid","conc"),
                sep="__") %>%
-      filter(compound_name == "isodeoxycholic acid" |
+      filter(
+        compound_name == "isodeoxycholic acid" |
                compound_name == "alloisolithocholic acid" |
                compound_name == "3-oxolithocholic acid" |
                itsd == "ITSD" ) %>%
@@ -4091,7 +4156,8 @@ indole_rawdf2_1 <- reactive({
       inner_join(., quant_conc_tbl5(), by = c("compound_name", "conc")) %>%
       separate(Data.File,into=c("num","date","batch","sampleid","conc"),
                sep="__") %>%
-      filter(compound_name == "isodeoxycholic acid" |
+      filter(
+        compound_name == "isodeoxycholic acid" |
                compound_name == "alloisolithocholic acid" |
                compound_name == "3-oxolithocholic acid" |
                itsd == "ITSD",
@@ -4288,7 +4354,8 @@ indole_rawdf2_1 <- reactive({
       inner_join(., quant_conc_tbl5(), by = c("compound_name", "conc")) %>%
       separate(Data.File,into=c("num","date","batch","sampleid","conc"),
                sep="__") %>%
-      filter(compound_name == "isodeoxycholic acid" |
+      filter(
+        compound_name == "isodeoxycholic acid" |
                compound_name == "alloisolithocholic acid" |
                compound_name == "3-oxolithocholic acid" |
                itsd == "ITSD",
@@ -4350,10 +4417,10 @@ indole_rawdf2_1 <- reactive({
       mutate(ITSD=zoo::na.locf(ITSD),
              norm_peak = peak / ITSD) %>%
       filter(!grepl("^CC[0-9]",sampleid),
-             grepl(pattern = "[Pp]lasma", sampleid)) %>%
+             grepl(pattern = "[Pp][Ll][Aa][Ss][Mm][Aa]", sampleid)) %>%
       left_join(modelstart5()) %>%
       mutate(quant_val =  (norm_peak - (`(Intercept)`))/slope_value*as.numeric(input$xfactor5)) %>%
-      mutate(sample = str_extract(sampleid, "[Pp]lasma"),
+      mutate(sample = str_extract(sampleid, "[Pp][Ll][Aa][Ss][Mm][Aa]"),
              qc = str_extract(sampleid, "[Qq][Cc]"),
              replicate = as.factor(str_extract(sampleid, "[0-9]+")),
              batch = unique(meta5_1()$batch)) %>%
@@ -4393,10 +4460,10 @@ indole_rawdf2_1 <- reactive({
       mutate(ITSD=zoo::na.locf(ITSD),
              norm_peak = peak / ITSD) %>%
       filter(!grepl("^CC[0-9]",sampleid),
-             grepl(pattern = "[Pp]lasma", sampleid)) %>%
+             grepl(pattern = "[Pp][Ll][Aa][Ss][Mm][Aa]", sampleid)) %>%
       left_join(modelstart5()) %>%
       mutate(quant_val =  (norm_peak - (`(Intercept)`))/slope_value*as.numeric(input$xfactor5)) %>%
-      mutate(sample = str_extract(sampleid, "[Pp]lasma"),
+      mutate(sample = str_extract(sampleid, "[Pp][Ll][Aa][Ss][Mm][Aa]"),
              qc = str_extract(sampleid, "[Qq][Cc]"),
              replicate = as.factor(str_extract(sampleid, "[0-9]+")),
              batch = unique(meta5_1()$batch)) %>%
@@ -4429,10 +4496,10 @@ indole_rawdf2_1 <- reactive({
       mutate(ITSD=zoo::na.locf(ITSD),
              norm_peak = peak / ITSD) %>%
       filter(!grepl("^CC[0-9]",sampleid),
-             grepl(pattern = "[Pp]lasma", sampleid)) %>%
+             grepl(pattern = "[Pp][Ll][Aa][Ss][Mm][Aa]", sampleid)) %>%
       left_join(modelstart5()) %>%
       mutate(quant_val =  (norm_peak - (`(Intercept)`))/slope_value*as.numeric(input$xfactor5)) %>%
-      mutate(sample = str_extract(sampleid, "[Pp]lasma"),
+      mutate(sample = str_extract(sampleid, "[Pp][Ll][Aa][Ss][Mm][Aa]"),
              qc = str_extract(sampleid, "[Qq][Cc]"),
              replicate = as.factor(str_extract(sampleid, "[0-9]+")),
              batch = unique(meta5_1()$batch)) %>%
@@ -4553,6 +4620,10 @@ indole_rawdf2_1 <- reactive({
     return(vars_ba)
   })
 
+  # output$BATEST1 <- renderDataTable(
+  #   rawdf_ba()
+  # )
+  
   output$compound_list_bile_acid <- renderUI({
     checkboxGroupInput("check_compounds_bile_acid","Check = diluted",
                        choices=csv_ba(),
@@ -4568,6 +4639,10 @@ indole_rawdf2_1 <- reactive({
       summarize(avg = mean(peakarea),
                 med = median(peakarea))
   })
+  
+  # output$BATEST2 <- renderDataTable(
+  #   conc_int_bile_acid()
+  # )
 
   conc_int_heatmap_bile_acid <- reactive({
 
@@ -4622,18 +4697,7 @@ indole_rawdf2_1 <- reactive({
                                 (min_peak/10))) %>%
       separate(Data.File,into=c("num","date","batch","sampleid","conc"),
                sep="__") %>%
-      mutate(sampleid = ifelse(sampleid %in%
-                                 c("PooledQC",
-                                   "Pooled_QC",
-                                   "SpikedPooledQC",
-                                   "Standards",
-                                   "BHIQC_[0-9]+",
-                                   "MB",
-                                   "MB_[0-9]+",
-                                   "PlasmaQC",
-                                   "Plasma_QC",
-                                   "Plasma[0-9]+",
-                                   "Hexanes"),
+      mutate(sampleid = ifelse(str_detect(sampleid, "[Mm][Bb]|[Pp][Oo][Oo][Ll][Ee][Dd]|[Bb][Hh][Ii][Qq][Cc]|[Pp][Ll][Aa][Ss][Mm][Aa]|[Hh][Ee][Xx][Aa][Nn][Ee][Ss]|[Ss][Tt][Aa][Nn][Dd][Aa][Rr][Dd]|50%_[Mm][Ee][Oo][Hh]|[Ee][Aa]_[Bb][Ll][Aa][Nn][Kk]|50%[Mm][Ee][Oo][hh]"),
                                paste(num, sampleid, conc, sep = "__"),
                                sampleid)) %>%
       mutate(sampleid = gsub(pattern = "X", replacement = "", sampleid)) %>%
@@ -4644,12 +4708,15 @@ indole_rawdf2_1 <- reactive({
              sampleid = gsub(pattern = "X", replacement = "", sampleid)) %>%
       dplyr::select(sampleid, compound_name, norm_peak) %>%
       pivot_wider(names_from = compound_name, values_from = norm_peak, values_fill = NA) %>%
-      filter(!str_detect(sampleid, "MB"),
-             !str_detect(sampleid, "Pooled"),
-             !str_detect(sampleid, "BHIQC"),
-             !str_detect(sampleid, "Plasma"),
-             !str_detect(sampleid, "Hexanes"),
-             !str_detect(sampleid, "Standards")) %>%
+      filter(!str_detect(sampleid, "[Mm][Bb]"),
+             !str_detect(sampleid, "[Pp][Oo][Oo][Ll][Ee][Dd]"),
+             !str_detect(sampleid, "[Bb][Hh][Ii][Qq][Cc]"),
+             !str_detect(sampleid, "[Pp][Ll][Aa][Ss][Mm][Aa]"),
+             !str_detect(sampleid, "[Hh][Ee][Xx][Aa][Nn][Ee][Ss]"),
+             !str_detect(sampleid, "[Ss][Tt][Aa][Nn][Dd][Aa][Rr][Dd]"),
+             !str_detect(sampleid, "50%_[Mm][Ee][Oo][Hh]"),
+             !str_detect(sampleid, "[Ee][Aa]_[Bb][Ll][Aa][Nn][Kk]"),
+             !str_detect(sampleid, "50%[Mm][Ee][Oo][Hh]")) %>%
       drop_na(.) %>%
       column_to_rownames(., var = "sampleid") %>%
       as.matrix(.) %>%
@@ -4682,18 +4749,7 @@ indole_rawdf2_1 <- reactive({
                                 (min_peak/10))) %>%
       separate(Data.File,into=c("num","date","batch","sampleid","conc"),
                sep="__") %>%
-      mutate(sampleid = ifelse(sampleid %in%
-                                 c("PooledQC",
-                                   "Pooled_QC",
-                                   "SpikedPooledQC",
-                                   "Standards",
-                                   "BHIQC_[0-9]+",
-                                   "MB",
-                                   "MB_[0-9]+",
-                                   "PlasmaQC",
-                                   "Plasma_QC",
-                                   "Plasma[0-9]+",
-                                   "Hexanes"),
+      mutate(sampleid = ifelse(str_detect(sampleid, "[Mm][Bb]|[Pp][Oo][Oo][Ll][Ee][Dd]|[Bb][Hh][Ii][Qq][Cc]|[Pp][Ll][Aa][Ss][Mm][Aa]|[Hh][Ee][Xx][Aa][Nn][Ee][Ss]|[Ss][Tt][Aa][Nn][Dd][Aa][Rr][Dd]|50%_[Mm][Ee][Oo][Hh]|[Ee][Aa]_[Bb][Ll][Aa][Nn][Kk]|50%[Mm][Ee][Oo][hh]"),
                                paste(num, sampleid, conc, sep = "__"),
                                sampleid)) %>%
       mutate(sampleid = gsub(pattern = "X", replacement = "", sampleid)) %>%
@@ -4704,12 +4760,15 @@ indole_rawdf2_1 <- reactive({
              sampleid = gsub(pattern = "X", replacement = "", sampleid)) %>%
       dplyr::select(sampleid, compound_name, norm_peak) %>%
       pivot_wider(names_from = compound_name, values_from = norm_peak, values_fill = NA) %>%
-      filter(!str_detect(sampleid, "MB"),
-             !str_detect(sampleid, "Pooled"),
-             !str_detect(sampleid, "BHIQC"),
-             !str_detect(sampleid, "Plasma"),
-             !str_detect(sampleid, "Hexanes"),
-             !str_detect(sampleid, "Standards")) %>%
+      filter(!str_detect(sampleid, "[Mm][Bb]"),
+             !str_detect(sampleid, "[Pp][Oo][Oo][Ll][Ee][Dd]"),
+             !str_detect(sampleid, "[Bb][Hh][Ii][Qq][Cc]"),
+             !str_detect(sampleid, "[Pp][Ll][Aa][Ss][Mm][Aa]"),
+             !str_detect(sampleid, "[Hh][Ee][Xx][Aa][Nn][Ee][Ss]"),
+             !str_detect(sampleid, "[Ss][Tt][Aa][Nn][Dd][Aa][Rr][Dd]"),
+             !str_detect(sampleid, "50%_[Mm][Ee][Oo][Hh]"),
+             !str_detect(sampleid, "[Ee][Aa]_[Bb][Ll][Aa][Nn][Kk]"),
+             !str_detect(sampleid, "50%[Mm][Ee][Oo][Hh]")) %>%
       drop_na(.) %>%
       column_to_rownames(., var = "sampleid") %>%
       as.matrix(.) %>%
@@ -4784,18 +4843,7 @@ indole_rawdf2_1 <- reactive({
         mutate(norm_peak = peakarea / avg) %>%
         separate(Data.File,into=c("num","date","batch","sampleid","conc"),
                  sep="__") %>%
-        mutate(sampleid = ifelse(sampleid %in%
-                                   c("PooledQC",
-                                     "Pooled_QC",
-                                     "SpikedPooledQC",
-                                     "Standards",
-                                     "BHIQC_[0-9]+",
-                                     "MB",
-                                     "MB_[0-9]+",
-                                     "PlasmaQC",
-                                     "Plasma_QC",
-                                     "Plasma[0-9]+",
-                                     "Hexanes"),
+        mutate(sampleid = ifelse(str_detect(sampleid, "[Mm][Bb]|[Pp][Oo][Oo][Ll][Ee][Dd]|[Bb][Hh][Ii][Qq][Cc]|[Pp][Ll][Aa][Ss][Mm][Aa]|[Hh][Ee][Xx][Aa][Nn][Ee][Ss]|[Ss][Tt][Aa][Nn][Dd][Aa][Rr][Dd]|50%_[Mm][Ee][Oo][Hh]|[Ee][Aa]_[Bb][Ll][Aa][Nn][Kk]|50%[Mm][Ee][Oo][hh]"),
                                  paste(num, sampleid, conc, sep = "__"),
                                  sampleid)) %>%
         mutate(sampleid = gsub(pattern = "X", replacement = "", sampleid)) %>%
@@ -4817,18 +4865,7 @@ indole_rawdf2_1 <- reactive({
         mutate(norm_peak = peakarea / avg) %>%
         separate(Data.File,into=c("num","date","batch","sampleid","conc"),
                  sep="__") %>%
-        mutate(sampleid = ifelse(sampleid %in%
-                                   c("PooledQC",
-                                     "Pooled_QC",
-                                     "SpikedPooledQC",
-                                     "Standards",
-                                     "BHIQC_[0-9]+",
-                                     "MB",
-                                     "MB_[0-9]+",
-                                     "PlasmaQC",
-                                     "Plasma_QC",
-                                     "Plasma[0-9]+",
-                                     "Hexanes"),
+        mutate(sampleid = ifelse(str_detect(sampleid, "[Mm][Bb]|[Pp][Oo][Oo][Ll][Ee][Dd]|[Bb][Hh][Ii][Qq][Cc]|[Pp][Ll][Aa][Ss][Mm][Aa]|[Hh][Ee][Xx][Aa][Nn][Ee][Ss]|[Ss][Tt][Aa][Nn][Dd][Aa][Rr][Dd]|50%_[Mm][Ee][Oo][Hh]|[Ee][Aa]_[Bb][Ll][Aa][Nn][Kk]|50%[Mm][Ee][Oo][hh]"),
                                  paste(num, sampleid, conc, sep = "__"),
                                  sampleid)) %>%
         mutate(sampleid = gsub(pattern = "X", replacement = "", sampleid)) %>%
@@ -4839,12 +4876,15 @@ indole_rawdf2_1 <- reactive({
                sampleid = gsub(pattern = "X", replacement = "", sampleid)) %>%
         dplyr::select(sampleid, compound_name, norm_peak) %>%
         pivot_wider(names_from = compound_name, values_from = norm_peak, values_fill = NA) %>%
-        filter(!str_detect(sampleid, "MB"),
-               !str_detect(sampleid, "Pooled"),
-               !str_detect(sampleid, "BHIQC"),
-               !str_detect(sampleid, "Plasma"),
-               !str_detect(sampleid, "Hexanes"),
-               !str_detect(sampleid, "Standards"))
+        filter(!str_detect(sampleid, "[Mm][Bb]"),
+               !str_detect(sampleid, "[Pp][Oo][Oo][Ll][Ee][Dd]"),
+               !str_detect(sampleid, "[Bb][Hh][Ii][Qq][Cc]"),
+               !str_detect(sampleid, "[Pp][Ll][Aa][Ss][Mm][Aa]"),
+               !str_detect(sampleid, "[Hh][Ee][Xx][Aa][Nn][Ee][Ss]"),
+               !str_detect(sampleid, "[Ss][Tt][Aa][Nn][Dd][Aa][Rr][Dd]"),
+               !str_detect(sampleid, "50%_[Mm][Ee][Oo][Hh]"),
+               !str_detect(sampleid, "[Ee][Aa]_[Bb][Ll][Aa][Nn][Kk]"),
+               !str_detect(sampleid, "50%[Mm][Ee][Oo][Hh]"))
     }
   })
 
@@ -5337,7 +5377,7 @@ indole_rawdf2_1 <- reactive({
   if (input$method == "PFBBr") {
     finals_paths <- reactive({
       list.files(path = "/Volumes/chaubard-lab/shiny_workspace/CLIN_Finals_QCs/",
-                 pattern = paste0("quant_results.+",input$method,"_CLIN00[9]|","quant_results.+",input$method,"_CLIN0[1-9]."), full.names = TRUE)
+                 pattern = paste0("quant_results_[0-9]+_",input$method,"_\\w+.csv"), full.names = TRUE)
     })
     
     # Read file content
@@ -5380,7 +5420,7 @@ indole_rawdf2_1 <- reactive({
       finals_result2() %>% 
       mutate_if(is.numeric, list(~na_if(., Inf))) %>% 
       pivot_longer(!c(method,date,batch,sampleid), names_to = "compound_name", values_to = "concentration") %>%
-      filter(grepl("[Pp]lasma", sampleid)) %>% 
+      filter(grepl("[Pp][Ll][Aa][Ss][Mm][Aa]", sampleid)) %>% 
       separate(sampleid, c("sample","qc","replicate"), sep = "_") %>% 
       group_by(method,date,batch,sample, compound_name) %>% 
       summarise(stdev = sd(concentration, na.rm = T),
@@ -5394,7 +5434,7 @@ indole_rawdf2_1 <- reactive({
       finals_result2() %>%
       mutate_if(is.numeric, list(~na_if(., Inf))) %>%
       pivot_longer(!c(method,date,batch,sampleid), names_to = "compound_name", values_to = "concentration") %>%
-      filter(grepl("[Pp]lasma", sampleid)) %>%
+      filter(grepl("[Pp][Ll][Aa][Ss][Mm][Aa]", sampleid)) %>%
       separate(sampleid, c("sample","qc","replicate"), sep = "_") %>%
       group_by(compound_name) %>%
       summarise(stdev = sd(concentration, na.rm = T),
@@ -5412,7 +5452,7 @@ indole_rawdf2_1 <- reactive({
       finals_result2() %>%
       mutate_if(is.numeric, list(~na_if(., Inf))) %>%
       pivot_longer(!c(method,date,batch,sampleid), names_to = "compound_name", values_to = "concentration") %>%
-      filter(grepl("[Pp]lasma", sampleid)) %>%
+      filter(grepl("[Pp][Ll][Aa][Ss][Mm][Aa]", sampleid)) %>%
       separate(sampleid, c("sample","qc","replicate"), sep = "_") %>%
       ungroup()
     })
@@ -5469,7 +5509,7 @@ return(p())
   } else if (input$method == "Indole") {
     finals_paths <- reactive({
       list.files(path = "/Volumes/chaubard-lab/shiny_workspace/CLIN_Finals_QCs/",
-                 pattern = paste0("[0-9]+_",input$method,"_Clin00[9]_[Qq]uant_[Ff]inal|[0-9]+_",input$method,"_Clin0[1-9]._[Qq]uant_[Ff]inal"), full.names = TRUE)
+                 pattern = paste0("quant_results_[0-9]+_",input$method,"_\\w+.csv"), full.names = TRUE)
     })
     
     # Read file content
@@ -5512,7 +5552,7 @@ return(p())
       finals_result2() %>% 
         mutate_if(is.numeric, list(~na_if(., Inf))) %>% 
         pivot_longer(!c(method,date,batch,sampleid), names_to = "compound_name", values_to = "concentration") %>%
-        filter(grepl("[Pp]lasma", sampleid)) %>% 
+        filter(grepl("[Pp][Ll][Aa][Ss][Mm][Aa]", sampleid)) %>% 
         separate(sampleid, c("sample","qc","replicate"), sep = "_") %>% 
         group_by(method,date,batch,sample, compound_name) %>% 
         summarise(stdev = sd(concentration, na.rm = T),
@@ -5526,7 +5566,7 @@ return(p())
       finals_result2() %>%
         mutate_if(is.numeric, list(~na_if(., Inf))) %>%
         pivot_longer(!c(method,date,batch,sampleid), names_to = "compound_name", values_to = "concentration") %>%
-        filter(grepl("[Pp]lasma", sampleid)) %>%
+        filter(grepl("[Pp][Ll][Aa][Ss][Mm][Aa]", sampleid)) %>%
         separate(sampleid, c("sample","qc","replicate"), sep = "_") %>%
         group_by(compound_name) %>%
         summarise(stdev = sd(concentration, na.rm = T),
@@ -5544,7 +5584,7 @@ return(p())
       finals_result2() %>%
         mutate_if(is.numeric, list(~na_if(., Inf))) %>%
         pivot_longer(!c(method,date,batch,sampleid), names_to = "compound_name", values_to = "concentration") %>%
-        filter(grepl("[Pp]lasma", sampleid)) %>%
+        filter(grepl("[Pp][Ll][Aa][Ss][Mm][Aa]", sampleid)) %>%
         separate(sampleid, c("sample","qc","replicate"), sep = "_") %>%
         ungroup()
     })
@@ -5603,7 +5643,7 @@ return(p())
     
     finals_paths <- reactive({
       list.files(path = "/Volumes/chaubard-lab/shiny_workspace/CLIN_Finals_QCs/",
-                 pattern = paste0("[0-9]+_",input$method,"_CLIN00[9]_[Qq]uant|[0-9]+_",input$method,"_CLIN0[1-9]._[Qq]uant"), full.names = TRUE)
+                 pattern = paste0("quant_results_[0-9]+_",input$method,"_\\w+.csv"), full.names = TRUE)
     })
     
     # Read file content
@@ -5649,7 +5689,7 @@ return(p())
       finals_result2() %>%
         mutate_if(is.numeric, list(~na_if(., Inf))) %>%
         pivot_longer(!c(date,method,batch,sampleid,num), names_to = "compound_name", values_to = "concentration") %>%
-        filter(grepl("[Pp]lasma", sampleid)) %>%
+        filter(grepl("[Pp][Ll][Aa][Ss][Mm][Aa]", sampleid)) %>%
         mutate(compound_name = gsub("X[0-9]+_","",compound_name),
                compound_name = gsub("_[A-Z]","",compound_name),
                compound_name = gsub(".", " ", compound_name)) %>%
@@ -5665,7 +5705,7 @@ return(p())
       finals_result2() %>%
         mutate_if(is.numeric, list(~na_if(., Inf))) %>%
         pivot_longer(!c(date,method,batch,sampleid,num), names_to = "compound_name", values_to = "concentration") %>%
-        filter(grepl("[Pp]lasma", sampleid)) %>%
+        filter(grepl("[Pp][Ll][Aa][Ss][Mm][Aa]", sampleid)) %>%
         separate(sampleid, c("sample","qc","replicate"), sep = "_") %>%
         group_by(compound_name) %>%
         summarise(stdev = sd(concentration, na.rm = T),
@@ -5683,7 +5723,7 @@ return(p())
       finals_result2() %>%
         mutate_if(is.numeric, list(~na_if(., Inf))) %>%
         pivot_longer(!c(date,method,batch,sampleid,num), names_to = "compound_name", values_to = "concentration") %>%
-        filter(grepl("[Pp]lasma", sampleid)) %>%
+        filter(grepl("[Pp][Ll][Aa][Ss][Mm][Aa]", sampleid)) %>%
         separate(sampleid, c("sample","qc","replicate"), sep = "_") %>%
         ungroup()
     })
@@ -5789,26 +5829,26 @@ return(p())
       arrange(desc(compound_name)) %>%
       filter(is.na(itsd)) %>% # This filters FOR samples that are NOT internal standards
       distinct(compound_name) %>%
-      `$`(compound_name)
+      `$`(compound_name) 
 
     return(vars_tms)
   })
   
-  # output$TEST_VECTOR <- renderUI({
-  #   x <- paste(csv_tms(), collapse = ",")
-  #   HTML(x)
-  # })
-
   # This generates the average and median peak areas for all internal standards in a sample
   conc_int_tms <- reactive({
-
+    
+    compounds_tms = unlist(strsplit(input$compounds_tms, split=","))
+    compounds_tms = factor(compounds_tms,level=unique(compounds_tms))
+    
     rawdf_tms() %>%
-      filter(itsd=="ITSD") %>%
+      filter(itsd=="ITSD",
+             compound_name %in% compounds_tms) %>%
       group_by(sampleid) %>%
       summarize(avg=mean(peakarea),
                 med=median(peakarea))
     
   })
+
   
   conc_int_tms_sep <- reactive({
     conc_int_tms() %>%
@@ -5816,17 +5856,22 @@ return(p())
                sep="__")
   })
 
+
   # This generates the minimum peak areas for all internal standards in a sample
   conc_int_heatmap_tms <- reactive({
-
+    
+    compounds_tms = unlist(strsplit(input$compounds_tms, split=","))
+    compounds_tms = factor(compounds_tms,level=unique(compounds_tms))
+    
     rawdf_tms() %>%
-      filter(itsd=="ITSD") %>%
+      filter(itsd=="ITSD",
+             compound_name %in% compounds_tms) %>%
       group_by(compound_name) %>%
       summarize(min_peak = ifelse(all(peakarea == 0), 0, min(peakarea[peakarea != 0])))
   })
   
   output$compound_list_tms <- renderUI({
-    checkboxGroupInput("check_compounds_tms","Check = nosplit",
+    checkboxGroupInput("check_compounds_tms","Check = split1to5",
                        choices=csv_tms(),
                        inline=F)
   })
@@ -5849,7 +5894,7 @@ return(p())
       scale_x_continuous(trans=log_epsilon_trans(epsilon=1000))
 
   })
-
+  
   output$raw_boxplots_tms <- renderPlot(
     raw_boxplots_tms()
   )
@@ -5861,14 +5906,14 @@ return(p())
       
       leftovervars <- csv_tms()[ !(csv_tms() %in% input$check_compounds_tms) ]
       
-      tibble(checked = rep("nosplit", length(input$check_compounds_tms)),
+      tibble(checked = rep("split1to5", length(input$check_compounds_tms)),
              compound_name = input$check_compounds_tms) %>%
-        bind_rows(tibble(checked = rep("split1to5", length(leftovervars)),
+        bind_rows(tibble(checked = rep("nosplit", length(leftovervars)),
                          compound_name = leftovervars)
         )
     }else{
       
-      tibble(checked = "split1to5",
+      tibble(checked = "nosplit",
              compound_name = csv_tms())
     }
   })
@@ -5877,7 +5922,7 @@ return(p())
     
     rawdf_tms() %>%
       left_join(conc_filter_tms()) %>%
-      replace_na(list(checked="split1o5")) %>%
+      replace_na(list(checked="nosplit")) %>%
       filter(conc==checked) %>%
       select(-checked) %>%
       left_join(conc_int_tms()) %>%
@@ -5896,7 +5941,7 @@ return(p())
   heatmap_plot_tms <- function()({
     rawdf_tms() %>%
       left_join(conc_filter_tms()) %>%
-      replace_na(list(checked="split1to5"))%>%
+      replace_na(list(checked="nosplit"))%>%
       filter(conc==checked, is.na(itsd),
              !grepl("(__CC[0-9]+__)", sampleid)) %>%
       select(-checked) %>%
@@ -5915,24 +5960,18 @@ return(p())
       separate(sampleid,into=c("num","date","batch","sampleid","conc"),
                sep="\\_\\_") %>%
       filter(!is.na(norm_peak)) %>%
-      mutate(sampleid = ifelse(sampleid %in%
-                                 c("PooledQC",
-                                   "Pooled_QC",
-                                   "BHIQC_1",
-                                   "BHIQC_2",
-                                   "MB",
-                                   "MB_1",
-                                   "MB_2",
-                                   "PlasmaQC",
-                                   "Plasma_QC",
-                                   "Hexanes"),
+      mutate(sampleid = ifelse(str_detect(sampleid, "[Mm][Bb]|[Pp][Oo][Oo][Ll][Ee][Dd]|[Bb][Hh][Ii][Qq][Cc]|[Pp][Ll][Aa][Ss][Mm][Aa]|[Hh][Ee][Xx][Aa][Nn][Ee][Ss]|[Ss][Tt][Aa][Nn][Dd][Aa][Rr][Dd]|50%_[Mm][Ee][Oo][Hh]|[Ee][Aa]_[Bb][Ll][Aa][Nn][Kk]|50%[Mm][Ee][Oo][hh]"),
                                paste(num, sampleid, conc, sep = "__"),
                                sampleid)) %>%
-      filter(!str_detect(sampleid, "MB"),
-             !str_detect(sampleid, "Pooled"),
-             !str_detect(sampleid, "BHIQC"),
-             !str_detect(sampleid, "Plasma"),
-             !str_detect(sampleid, "Hexanes"),
+      filter(!str_detect(sampleid, "[Mm][Bb]"),
+             !str_detect(sampleid, "[Pp][Oo][Oo][Ll][Ee][Dd]"),
+             !str_detect(sampleid, "[Bb][Hh][Ii][Qq][Cc]"),
+             !str_detect(sampleid, "[Pp][Ll][Aa][Ss][Mm][Aa]"),
+             !str_detect(sampleid, "[Hh][Ee][Xx][Aa][Nn][Ee][Ss]"),
+             !str_detect(sampleid, "[Ss][Tt][Aa][Nn][Dd][Aa][Rr][Dd]"),
+             !str_detect(sampleid, "50%_[Mm][Ee][Oo][Hh]"),
+             !str_detect(sampleid, "[Ee][Aa]_[Bb][Ll][Aa][Nn][Kk]"),
+             !str_detect(sampleid, "50%[Mm][Ee][Oo][Hh]"),
              !grepl("CC[0-9]+", sampleid)) %>%
       dplyr::select(sampleid, compound_name, norm_peak) %>%
       mutate(norm_peak = round(norm_peak,5)) %>%
@@ -5977,17 +6016,7 @@ return(p())
       separate(sampleid,into=c("num","date","batch","sampleid","conc"),
                sep="\\_\\_") %>%
       filter(!is.na(norm_peak)) %>%
-      mutate(sampleid = ifelse(sampleid %in%
-                                 c("PooledQC",
-                                   "Pooled_QC",
-                                   "BHIQC_1",
-                                   "BHIQC_2",
-                                   "MB",
-                                   "MB_1",
-                                   "MB_2",
-                                   "PlasmaQC",
-                                   "Plasma_QC",
-                                   "Hexanes"),
+      mutate(sampleid = ifelse(str_detect(sampleid, "[Mm][Bb]|[Pp][Oo][Oo][Ll][Ee][Dd]|[Bb][Hh][Ii][Qq][Cc]|[Pp][Ll][Aa][Ss][Mm][Aa]|[Hh][Ee][Xx][Aa][Nn][Ee][Ss]|[Ss][Tt][Aa][Nn][Dd][Aa][Rr][Dd]|50%_[Mm][Ee][Oo][Hh]|[Ee][Aa]_[Bb][Ll][Aa][Nn][Kk]|50%[Mm][Ee][Oo][hh]"),
                                paste(num, sampleid, conc, sep = "__"),
                                sampleid)) %>%
       dplyr::select(sampleid, compound_name, norm_peak) %>%
@@ -6001,6 +6030,10 @@ return(p())
       as.matrix(.) %>%
       t(.)
   })
+  
+  # output$TEST4 <- renderDataTable(
+  #   heatmap_data_tms()
+  # )
 
   output$heatmap_download_tms <- downloadHandler(
     filename = function(){
@@ -6008,7 +6041,7 @@ return(p())
     },
     content = function(file) {
       pdf(file,
-          height = nrow(heatmap_data_tms()) / (nrow(heatmap_data_tms())*0.055),
+          height = nrow(heatmap_data_tms()) / (nrow(heatmap_data_tms())*0.035),
           width = (ncol(heatmap_data_tms()) / (ncol(heatmap_data_tms())*0.07))+1.5
       )
       heatmap_plot_tms()
@@ -6024,7 +6057,7 @@ return(p())
     if(input$qcfil_tms==F){
       rawdf_tms() %>%
         left_join(conc_filter_tms()) %>%
-        replace_na(list(checked="split1to5")) %>%
+        replace_na(list(checked="nosplit")) %>%
         filter(conc==checked, is.na(itsd),
                !grepl("(__CC[0-9]+__)", sampleid)) %>%
         select(-checked) %>%
@@ -6037,15 +6070,7 @@ return(p())
         separate(sampleid,into=c("num","date","batch","sampleid","conc"),
                  sep="__") %>%
         filter(!is.na(norm_peak)) %>%
-        mutate(sampleid = ifelse(sampleid %in%
-                                   c("PooledQC",
-                                     "Pooled_QC",
-                                     "BHIQC_[0-9]+",
-                                     "MB",
-                                     "MB_[0-9]+",
-                                     "PlasmaQC",
-                                     "Plasma_QC",
-                                     "Hexanes"),
+        mutate(sampleid = ifelse(str_detect(sampleid, "[Mm][Bb]|[Pp][Oo][Oo][Ll][Ee][Dd]|[Bb][Hh][Ii][Qq][Cc]|[Pp][Ll][Aa][Ss][Mm][Aa]|[Hh][Ee][Xx][Aa][Nn][Ee][Ss]|[Ss][Tt][Aa][Nn][Dd][Aa][Rr][Dd]|50%_[Mm][Ee][Oo][Hh]|[Ee][Aa]_[Bb][Ll][Aa][Nn][Kk]|50%[Mm][Ee][Oo][hh]"),
                                  paste(num, sampleid, conc, sep = "__"),
                                  sampleid)) %>%
         dplyr::select(sampleid, compound_name, norm_peak) %>%
@@ -6059,7 +6084,7 @@ return(p())
     }else{
       rawdf_tms() %>%
         left_join(conc_filter_tms()) %>%
-        replace_na(list(checked="split1to5")) %>%
+        replace_na(list(checked="nosplit")) %>%
         filter(conc==checked, is.na(itsd)) %>%
         select(-checked) %>%
         left_join(conc_int_tms()) %>%
@@ -6070,22 +6095,19 @@ return(p())
         dplyr::rename(compound_name=variable,norm_peak=value) %>%
         separate(sampleid,into=c("num","date","batch","sampleid","conc"),
                  sep="__") %>%
-        mutate(sampleid = ifelse(sampleid %in% c("PooledQC",
-                                                 "Pooled_QC",
-                                                 "BHIQC_[0-9]+",
-                                                 "MB",
-                                                 "MB_[0-9]+",
-                                                 "PlasmaQC",
-                                                 "Plasma_QC",
-                                                 "Hexanes"),
+        mutate(sampleid = ifelse(str_detect(sampleid, "[Mm][Bb]|[Pp][Oo][Oo][Ll][Ee][Dd]|[Bb][Hh][Ii][Qq][Cc]|[Pp][Ll][Aa][Ss][Mm][Aa]|[Hh][Ee][Xx][Aa][Nn][Ee][Ss]|[Ss][Tt][Aa][Nn][Dd][Aa][Rr][Dd]|50%_[Mm][Ee][Oo][Hh]|[Ee][Aa]_[Bb][Ll][Aa][Nn][Kk]|50%[Mm][Ee][Oo][hh]"),
                                  paste(num, sampleid, conc, sep = "__"),
                                  sampleid)) %>%
         filter(!is.na(norm_peak)) %>%
-        filter(!str_detect(sampleid, "MB"),
-               !str_detect(sampleid, "Pooled"),
-               !str_detect(sampleid, "BHIQC"),
-               !str_detect(sampleid, "Plasma"),
-               !str_detect(sampleid, "Hexanes"),
+        filter(!str_detect(sampleid, "[Mm][Bb]"),
+               !str_detect(sampleid, "[Pp][Oo][Oo][Ll][Ee][Dd]"),
+               !str_detect(sampleid, "[Bb][Hh][Ii][Qq][Cc]"),
+               !str_detect(sampleid, "[Pp][Ll][Aa][Ss][Mm][Aa]"),
+               !str_detect(sampleid, "[Hh][Ee][Xx][Aa][Nn][Ee][Ss]"),
+               !str_detect(sampleid, "[Ss][Tt][Aa][Nn][Dd][Aa][Rr][Dd]"),
+               !str_detect(sampleid, "50%_[Mm][Ee][Oo][Hh]"),
+               !str_detect(sampleid, "[Ee][Aa]_[Bb][Ll][Aa][Nn][Kk]"),
+               !str_detect(sampleid, "50%[Mm][Ee][Oo][Hh]"),
                !grepl("CC[0-9]+", sampleid)
         ) %>%
         dplyr::select(num,sampleid, compound_name, norm_peak) %>%
