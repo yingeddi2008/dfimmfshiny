@@ -356,10 +356,12 @@ readin_bile_csv_single_file <- function(filename,na.value=0,recursive=F){
            Data.File=variable) %>%
     separate(com,into=c("num","compound_name","letter"),sep="\\_") %>%
     separate(variable,into=c("num2","date_run","batch","sampleid","conc"),sep="\\_\\_") %>%
+    mutate(num2 = gsub("[Xx]", "", num2),
+           sampleid = paste(num2, sampleid, sep = "_")) %>% 
     select(Data.File,sampleid,date_run,Compound.Name,compound_name,
            batch,letter,itsd,conc,peakarea=value) %>%
-    mutate(filename=filename) %>%
-    mutate(compound_name=gsub("D[0-9]+\\-","",compound_name),
+    mutate(filename=filename,
+           compound_name=gsub("D[0-9]+\\-","",compound_name),
            compound_name=tolower(compound_name),
            conc=ifelse(grepl("dil",conc),"diluted","concentrated"))
   
