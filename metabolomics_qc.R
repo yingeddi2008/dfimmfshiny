@@ -384,7 +384,7 @@ wddir <- "/Volumes/chaubard-lab/shiny_workspace/csvs/"
 
 ui <- fluidPage(
   # shinythemes::themeSelector(),
-  titlePanel("DFI Metabolomics QC (v1.8.5)"),
+  titlePanel("DFI Metabolomics QC (v1.8.6)"),
   br(),
   
   # CSV file selector -------------------------------------------------------
@@ -1187,7 +1187,16 @@ server <- function(input, output, session) {
       inner_join(., quant_conc_tbl(), by = c("compound_name", "conc")) %>% 
       separate(sampleid,into=c("num","date","batch","sampleid","conc"),
                sep="__") %>% 
-      filter(itsd == "ITSD") %>% 
+      filter(itsd == "ITSD",
+             !str_detect(sampleid, "[Mm][Bb]"),
+             !str_detect(sampleid, "[Pp][Oo][Oo][Ll][Ee][Dd]"),
+             !str_detect(sampleid, "[Bb][Hh][Ii][Qq][Cc]"),
+             !str_detect(sampleid, "[Pp][Ll][Aa][Ss][Mm][Aa]"),
+             !str_detect(sampleid, "[Hh][Ee][Xx][Aa][Nn][Ee][Ss]"),
+             !str_detect(sampleid, "[Ss][Tt][Aa][Nn][Dd][Aa][Rr][Dd]"),
+             !str_detect(sampleid, "50%_[Mm][Ee][Oo][Hh]"),
+             !str_detect(sampleid, "[Ee][Aa]_[Bb][Ll][Aa][Nn][Kk]"),
+             !str_detect(sampleid, "50%[Mm][Ee][Oo][Hh]")) %>% 
       mutate(peakarea = ifelse(peakarea <= 5000, 5000, peakarea),
              num = as.numeric(num),
              cc_shape = ifelse(grepl("CC[0-9]+", sampleid), "Calibration Curve Sample", "Standard Sample"))
@@ -1209,7 +1218,8 @@ server <- function(input, output, session) {
              !str_detect(sampleid, "[Ss][Tt][Aa][Nn][Dd][Aa][Rr][Dd]"),
              !str_detect(sampleid, "50%_[Mm][Ee][Oo][Hh]"),
              !str_detect(sampleid, "[Ee][Aa]_[Bb][Ll][Aa][Nn][Kk]"),
-             !str_detect(sampleid, "50%[Mm][Ee][Oo][Hh]")) %>% 
+             !str_detect(sampleid, "50%[Mm][Ee][Oo][Hh]"),
+             !grepl("[Cc][Cc][0-9]+", sampleid)) %>% 
       mutate(peakarea = ifelse(peakarea <= 5000, 5000, peakarea)) %>% 
       group_by(batch, compound_name) %>% 
       summarise(stdev = sd(peakarea),
@@ -2029,10 +2039,16 @@ server <- function(input, output, session) {
       inner_join(., conc_int_sep(), by = c("num","date","batch","sampleid","conc")) %>%
       filter(itsd == "ITSD",
              compound_name %in% compounds,
-             !grepl(pattern = "^CC[0-9]+", sampleid),
-             !grepl(pattern = "^MB", sampleid),
-             !grepl(pattern = "^Hexane", sampleid),
-             !grepl(pattern = "Standard", sampleid)) %>%
+             !str_detect(sampleid, "[Mm][Bb]"),
+             !str_detect(sampleid, "[Pp][Oo][Oo][Ll][Ee][Dd]"),
+             !str_detect(sampleid, "[Bb][Hh][Ii][Qq][Cc]"),
+             !str_detect(sampleid, "[Pp][Ll][Aa][Ss][Mm][Aa]"),
+             !str_detect(sampleid, "[Hh][Ee][Xx][Aa][Nn][Ee][Ss]"),
+             !str_detect(sampleid, "[Ss][Tt][Aa][Nn][Dd][Aa][Rr][Dd]"),
+             !str_detect(sampleid, "50%_[Mm][Ee][Oo][Hh]"),
+             !str_detect(sampleid, "[Ee][Aa]_[Bb][Ll][Aa][Nn][Kk]"),
+             !str_detect(sampleid, "50%[Mm][Ee][Oo][Hh]"),
+             !grepl("[Cc][Cc][0-9]+", sampleid)) %>%
       mutate(peakarea = ifelse(peakarea <= 5000, 5000, peakarea)) %>%
       group_by(batch, compound_name, conc) %>%
       summarise(stdev = sd(peakarea),
@@ -2052,7 +2068,16 @@ server <- function(input, output, session) {
       separate(sampleid,into=c("num","date","batch","sampleid","conc"),
                sep="__") %>%
       filter(itsd == "ITSD",
-             compound_name %in% compounds) %>%
+             compound_name %in% compounds,
+             !str_detect(sampleid, "[Mm][Bb]"),
+             !str_detect(sampleid, "[Pp][Oo][Oo][Ll][Ee][Dd]"),
+             !str_detect(sampleid, "[Bb][Hh][Ii][Qq][Cc]"),
+             !str_detect(sampleid, "[Pp][Ll][Aa][Ss][Mm][Aa]"),
+             !str_detect(sampleid, "[Hh][Ee][Xx][Aa][Nn][Ee][Ss]"),
+             !str_detect(sampleid, "[Ss][Tt][Aa][Nn][Dd][Aa][Rr][Dd]"),
+             !str_detect(sampleid, "50%_[Mm][Ee][Oo][Hh]"),
+             !str_detect(sampleid, "[Ee][Aa]_[Bb][Ll][Aa][Nn][Kk]"),
+             !str_detect(sampleid, "50%[Mm][Ee][Oo][Hh]")) %>%
       mutate(peakarea = ifelse(peakarea <= 5000, 5000, peakarea),
              cc_shape = ifelse(grepl("CC[0-9]+", sampleid), "CC Sample", "ITSD")) %>%
       inner_join(., conc_int_sep(), by = c("num","date","batch","sampleid","conc")) %>%
@@ -2108,7 +2133,16 @@ server <- function(input, output, session) {
       separate(sampleid,into=c("num","date","batch","sampleid","conc"),
                sep="__") %>%
       filter(itsd == "ITSD",
-             compound_name %in% compounds) %>%
+             compound_name %in% compounds,
+             !str_detect(sampleid, "[Mm][Bb]"),
+             !str_detect(sampleid, "[Pp][Oo][Oo][Ll][Ee][Dd]"),
+             !str_detect(sampleid, "[Bb][Hh][Ii][Qq][Cc]"),
+             !str_detect(sampleid, "[Pp][Ll][Aa][Ss][Mm][Aa]"),
+             !str_detect(sampleid, "[Hh][Ee][Xx][Aa][Nn][Ee][Ss]"),
+             !str_detect(sampleid, "[Ss][Tt][Aa][Nn][Dd][Aa][Rr][Dd]"),
+             !str_detect(sampleid, "50%_[Mm][Ee][Oo][Hh]"),
+             !str_detect(sampleid, "[Ee][Aa]_[Bb][Ll][Aa][Nn][Kk]"),
+             !str_detect(sampleid, "50%[Mm][Ee][Oo][Hh]")) %>%
       mutate(peakarea = ifelse(peakarea <= 5000, 5000, peakarea),
              cc_shape = ifelse(grepl("CC[0-9]+", sampleid), "CC Sample", "ITSD")) %>%
       inner_join(., conc_int_sep(), by = c("num","date","batch","sampleid","conc")) %>%
@@ -2169,10 +2203,16 @@ server <- function(input, output, session) {
       inner_join(., conc_int_sep(), by = c("num","date","batch","sampleid","conc")) %>%
       filter(itsd == "ITSD",
              compound_name %in% compounds,
-             !grepl(pattern = "^CC[0-9]+", sampleid),
-             !grepl(pattern = "^MB", sampleid),
-             !grepl(pattern = "Hexane", sampleid),
-             !grepl(pattern = "Standard", sampleid)) %>%
+             !str_detect(sampleid, "[Mm][Bb]"),
+             !str_detect(sampleid, "[Pp][Oo][Oo][Ll][Ee][Dd]"),
+             !str_detect(sampleid, "[Bb][Hh][Ii][Qq][Cc]"),
+             !str_detect(sampleid, "[Pp][Ll][Aa][Ss][Mm][Aa]"),
+             !str_detect(sampleid, "[Hh][Ee][Xx][Aa][Nn][Ee][Ss]"),
+             !str_detect(sampleid, "[Ss][Tt][Aa][Nn][Dd][Aa][Rr][Dd]"),
+             !str_detect(sampleid, "50%_[Mm][Ee][Oo][Hh]"),
+             !str_detect(sampleid, "[Ee][Aa]_[Bb][Ll][Aa][Nn][Kk]"),
+             !str_detect(sampleid, "50%[Mm][Ee][Oo][Hh]"),
+             !grepl("[Cc][Cc][0-9]+", sampleid)) %>%
       mutate(peakarea = ifelse(peakarea <= 5000, 5000, peakarea)) %>%
       group_by(batch, compound_name, conc) %>%
       summarise(stdev = sd(peakarea),
@@ -2645,7 +2685,16 @@ server <- function(input, output, session) {
       filter(compound_name %in% compounds2) %>%
       separate(sampleid,into=c("num","date","batch","sampleid","conc"),
                sep="__") %>%
-      filter(itsd == "ITSD" ) %>%
+      filter(itsd == "ITSD",
+             !str_detect(sampleid, "[Mm][Bb]"),
+             !str_detect(sampleid, "[Pp][Oo][Oo][Ll][Ee][Dd]"),
+             !str_detect(sampleid, "[Bb][Hh][Ii][Qq][Cc]"),
+             !str_detect(sampleid, "[Pp][Ll][Aa][Ss][Mm][Aa]"),
+             !str_detect(sampleid, "[Hh][Ee][Xx][Aa][Nn][Ee][Ss]"),
+             !str_detect(sampleid, "[Ss][Tt][Aa][Nn][Dd][Aa][Rr][Dd]"),
+             !str_detect(sampleid, "50%_[Mm][Ee][Oo][Hh]"),
+             !str_detect(sampleid, "[Ee][Aa]_[Bb][Ll][Aa][Nn][Kk]"),
+             !str_detect(sampleid, "50%[Mm][Ee][Oo][Hh]")) %>%
       mutate(peakarea = ifelse(peakarea <= 5000, 5000, peakarea),
              num = gsub("X","",num),
              num = as.numeric(num),
@@ -2664,10 +2713,16 @@ server <- function(input, output, session) {
       separate(sampleid,into=c("num","date","batch","sampleid","conc"),
                sep="__") %>%
       filter(itsd == "ITSD",
-             !grepl(pattern = "^cc[0-9]+", sampleid),
-             !grepl(pattern = "^MB", sampleid),
-             !grepl(pattern = "^Hexane", sampleid),
-             !grepl(pattern = "Standard", sampleid)) %>%
+             !str_detect(sampleid, "[Mm][Bb]"),
+             !str_detect(sampleid, "[Pp][Oo][Oo][Ll][Ee][Dd]"),
+             !str_detect(sampleid, "[Bb][Hh][Ii][Qq][Cc]"),
+             !str_detect(sampleid, "[Pp][Ll][Aa][Ss][Mm][Aa]"),
+             !str_detect(sampleid, "[Hh][Ee][Xx][Aa][Nn][Ee][Ss]"),
+             !str_detect(sampleid, "[Ss][Tt][Aa][Nn][Dd][Aa][Rr][Dd]"),
+             !str_detect(sampleid, "50%_[Mm][Ee][Oo][Hh]"),
+             !str_detect(sampleid, "[Ee][Aa]_[Bb][Ll][Aa][Nn][Kk]"),
+             !str_detect(sampleid, "50%[Mm][Ee][Oo][Hh]"),
+             !grepl("[Cc][Cc][0-9]+", sampleid)) %>%
       mutate(peakarea = ifelse(peakarea <= 5000, 5000, peakarea),
              num = gsub("X","",num),
              num = as.numeric(num)) %>%
@@ -2945,10 +3000,16 @@ server <- function(input, output, session) {
         separate(sampleid,into=c("num","date","batch","sampleid","conc"),
                  sep="__") %>%
         filter(itsd == "ITSD",
-               !grepl(pattern = "^cc[0-9]+", sampleid),
-               !grepl(pattern = "^MB", sampleid),
-               !grepl(pattern = "^Hexane", sampleid),
-               !grepl(pattern = "Standard", sampleid)) %>%
+               !str_detect(sampleid, "[Mm][Bb]"),
+               !str_detect(sampleid, "[Pp][Oo][Oo][Ll][Ee][Dd]"),
+               !str_detect(sampleid, "[Bb][Hh][Ii][Qq][Cc]"),
+               !str_detect(sampleid, "[Pp][Ll][Aa][Ss][Mm][Aa]"),
+               !str_detect(sampleid, "[Hh][Ee][Xx][Aa][Nn][Ee][Ss]"),
+               !str_detect(sampleid, "[Ss][Tt][Aa][Nn][Dd][Aa][Rr][Dd]"),
+               !str_detect(sampleid, "50%_[Mm][Ee][Oo][Hh]"),
+               !str_detect(sampleid, "[Ee][Aa]_[Bb][Ll][Aa][Nn][Kk]"),
+               !str_detect(sampleid, "50%[Mm][Ee][Oo][Hh]"),
+               !grepl("[Cc][Cc][0-9]+", sampleid)) %>%
         mutate(peakarea = ifelse(peakarea <= 5000, 5000, peakarea),
                num = gsub("X","",num),
                num = as.numeric(num)) %>%
@@ -3519,10 +3580,16 @@ indole_rawdf2 <- reactive({
       inner_join(., indole_conc_int_sep2(), by = c("num","date","batch","sampleid","conc")) %>%
       filter(itsd == "ITSD",
              compound_name %in% compounds,
-             !grepl(pattern = "^cc[0-9]+", sampleid),
-             !grepl(pattern = "^MB", sampleid),
-             !grepl(pattern = "^Hexane", sampleid),
-             !grepl(pattern = "Standard", sampleid)) %>%
+             !str_detect(sampleid, "[Mm][Bb]"),
+             !str_detect(sampleid, "[Pp][Oo][Oo][Ll][Ee][Dd]"),
+             !str_detect(sampleid, "[Bb][Hh][Ii][Qq][Cc]"),
+             !str_detect(sampleid, "[Pp][Ll][Aa][Ss][Mm][Aa]"),
+             !str_detect(sampleid, "[Hh][Ee][Xx][Aa][Nn][Ee][Ss]"),
+             !str_detect(sampleid, "[Ss][Tt][Aa][Nn][Dd][Aa][Rr][Dd]"),
+             !str_detect(sampleid, "50%_[Mm][Ee][Oo][Hh]"),
+             !str_detect(sampleid, "[Ee][Aa]_[Bb][Ll][Aa][Nn][Kk]"),
+             !str_detect(sampleid, "50%[Mm][Ee][Oo][Hh]"),
+             !grepl("[Cc][Cc][0-9]+", sampleid)) %>%
       mutate(peakarea = ifelse(peakarea <= 5000, 5000, peakarea)) %>%
       group_by(batch, compound_name) %>%
       summarise(stdev = sd(peakarea),
@@ -3543,7 +3610,16 @@ indole_rawdf2 <- reactive({
                sep="__") %>%
       inner_join(., indole_conc_int_sep2(), by = c("num","date","batch","sampleid","conc")) %>%
       filter(itsd == "ITSD",
-             compound_name %in% compounds) %>%
+             compound_name %in% compounds,
+             !str_detect(sampleid, "[Mm][Bb]"),
+             !str_detect(sampleid, "[Pp][Oo][Oo][Ll][Ee][Dd]"),
+             !str_detect(sampleid, "[Bb][Hh][Ii][Qq][Cc]"),
+             !str_detect(sampleid, "[Pp][Ll][Aa][Ss][Mm][Aa]"),
+             !str_detect(sampleid, "[Hh][Ee][Xx][Aa][Nn][Ee][Ss]"),
+             !str_detect(sampleid, "[Ss][Tt][Aa][Nn][Dd][Aa][Rr][Dd]"),
+             !str_detect(sampleid, "50%_[Mm][Ee][Oo][Hh]"),
+             !str_detect(sampleid, "[Ee][Aa]_[Bb][Ll][Aa][Nn][Kk]"),
+             !str_detect(sampleid, "50%[Mm][Ee][Oo][Hh]")) %>%
       mutate(peakarea = ifelse(peakarea <= 5000, 5000, peakarea),
              cc_shape = ifelse(grepl("cc[0-9]+", sampleid), "CC Sample", "ITSD")) %>%
       filter(itsd == "ITSD") %>%
@@ -3599,7 +3675,16 @@ indole_norm_plot2 <-function()({
                sep="__") %>%
       inner_join(., indole_conc_int_sep2(), by = c("num","date","batch","sampleid","conc")) %>%
       filter(itsd == "ITSD",
-             compound_name %in% compounds) %>%
+             compound_name %in% compounds,
+             !str_detect(sampleid, "[Mm][Bb]"),
+             !str_detect(sampleid, "[Pp][Oo][Oo][Ll][Ee][Dd]"),
+             !str_detect(sampleid, "[Bb][Hh][Ii][Qq][Cc]"),
+             !str_detect(sampleid, "[Pp][Ll][Aa][Ss][Mm][Aa]"),
+             !str_detect(sampleid, "[Hh][Ee][Xx][Aa][Nn][Ee][Ss]"),
+             !str_detect(sampleid, "[Ss][Tt][Aa][Nn][Dd][Aa][Rr][Dd]"),
+             !str_detect(sampleid, "50%_[Mm][Ee][Oo][Hh]"),
+             !str_detect(sampleid, "[Ee][Aa]_[Bb][Ll][Aa][Nn][Kk]"),
+             !str_detect(sampleid, "50%[Mm][Ee][Oo][Hh]")) %>%
       mutate(peakarea = ifelse(peakarea <= 5000, 5000, peakarea),
              cc_shape = ifelse(grepl("cc[0-9]+", sampleid), "CC Sample", "ITSD")) %>%
       filter(itsd == "ITSD") %>%
@@ -3660,10 +3745,16 @@ indole_rawdf2_1 <- reactive({
       inner_join(., indole_conc_int_sep2(), by = c("num","date","batch","sampleid","conc")) %>%
       filter(itsd == "ITSD",
              compound_name %in% compounds,
-             !grepl(pattern = "^cc[0-9]+", sampleid),
-             !grepl(pattern = "^MB", sampleid),
-             !grepl(pattern = "Hexane", sampleid),
-             !grepl(pattern = "Standard", sampleid)) %>%
+             !str_detect(sampleid, "[Mm][Bb]"),
+             !str_detect(sampleid, "[Pp][Oo][Oo][Ll][Ee][Dd]"),
+             !str_detect(sampleid, "[Bb][Hh][Ii][Qq][Cc]"),
+             !str_detect(sampleid, "[Pp][Ll][Aa][Ss][Mm][Aa]"),
+             !str_detect(sampleid, "[Hh][Ee][Xx][Aa][Nn][Ee][Ss]"),
+             !str_detect(sampleid, "[Ss][Tt][Aa][Nn][Dd][Aa][Rr][Dd]"),
+             !str_detect(sampleid, "50%_[Mm][Ee][Oo][Hh]"),
+             !str_detect(sampleid, "[Ee][Aa]_[Bb][Ll][Aa][Nn][Kk]"),
+             !str_detect(sampleid, "50%[Mm][Ee][Oo][Hh]"),
+             !grepl("[Cc][Cc][0-9]+", sampleid)) %>%
       mutate(peakarea = ifelse(peakarea <= 5000, 5000, peakarea)) %>%
       group_by(batch, compound_name) %>%
       summarise(stdev = sd(peakarea),
@@ -4141,7 +4232,16 @@ indole_rawdf2_1 <- reactive({
         compound_name == "isodeoxycholic acid" |
                compound_name == "alloisolithocholic acid" |
                compound_name == "3-oxolithocholic acid" |
-               itsd == "ITSD" ) %>%
+               itsd == "ITSD",
+        !str_detect(sampleid, "[Mm][Bb]"),
+        !str_detect(sampleid, "[Pp][Oo][Oo][Ll][Ee][Dd]"),
+        !str_detect(sampleid, "[Bb][Hh][Ii][Qq][Cc]"),
+        !str_detect(sampleid, "[Pp][Ll][Aa][Ss][Mm][Aa]"),
+        !str_detect(sampleid, "[Hh][Ee][Xx][Aa][Nn][Ee][Ss]"),
+        !str_detect(sampleid, "[Ss][Tt][Aa][Nn][Dd][Aa][Rr][Dd]"),
+        !str_detect(sampleid, "50%_[Mm][Ee][Oo][Hh]"),
+        !str_detect(sampleid, "[Ee][Aa]_[Bb][Ll][Aa][Nn][Kk]"),
+        !str_detect(sampleid, "50%[Mm][Ee][Oo][Hh]")) %>%
       mutate(peakarea = ifelse(peakarea <= 5000, 5000, peakarea),
              num = gsub("X","",num),
              num = as.numeric(num),
@@ -4163,10 +4263,16 @@ indole_rawdf2_1 <- reactive({
                compound_name == "alloisolithocholic acid" |
                compound_name == "3-oxolithocholic acid" |
                itsd == "ITSD",
-             !grepl(pattern = "^CC[0-9]+", sampleid),
-             !grepl(pattern = "^MB", sampleid),
-             !grepl(pattern = "^Hexane", sampleid),
-             !grepl(pattern = "Standard", sampleid)) %>%
+        !str_detect(sampleid, "[Mm][Bb]"),
+        !str_detect(sampleid, "[Pp][Oo][Oo][Ll][Ee][Dd]"),
+        !str_detect(sampleid, "[Bb][Hh][Ii][Qq][Cc]"),
+        !str_detect(sampleid, "[Pp][Ll][Aa][Ss][Mm][Aa]"),
+        !str_detect(sampleid, "[Hh][Ee][Xx][Aa][Nn][Ee][Ss]"),
+        !str_detect(sampleid, "[Ss][Tt][Aa][Nn][Dd][Aa][Rr][Dd]"),
+        !str_detect(sampleid, "50%_[Mm][Ee][Oo][Hh]"),
+        !str_detect(sampleid, "[Ee][Aa]_[Bb][Ll][Aa][Nn][Kk]"),
+        !str_detect(sampleid, "50%[Mm][Ee][Oo][Hh]"),
+        !grepl("[Cc][Cc][0-9]+", sampleid)) %>%
       mutate(peakarea = ifelse(peakarea <= 5000, 5000, peakarea),
              num = gsub("X","",num),
              num = as.numeric(num)) %>%
@@ -4304,7 +4410,16 @@ indole_rawdf2_1 <- reactive({
     compounds = tolower(unlist(strsplit(input$compounds5, split=",")))
 
     meta5() %>%
-      filter(compound_name %in% compounds) %>%
+      filter(compound_name %in% compounds,
+             !str_detect(sampleid, "[Mm][Bb]"),
+             !str_detect(sampleid, "[Pp][Oo][Oo][Ll][Ee][Dd]"),
+             !str_detect(sampleid, "[Bb][Hh][Ii][Qq][Cc]"),
+             !str_detect(sampleid, "[Pp][Ll][Aa][Ss][Mm][Aa]"),
+             !str_detect(sampleid, "[Hh][Ee][Xx][Aa][Nn][Ee][Ss]"),
+             !str_detect(sampleid, "[Ss][Tt][Aa][Nn][Dd][Aa][Rr][Dd]"),
+             !str_detect(sampleid, "50%_[Mm][Ee][Oo][Hh]"),
+             !str_detect(sampleid, "[Ee][Aa]_[Bb][Ll][Aa][Nn][Kk]"),
+             !str_detect(sampleid, "50%[Mm][Ee][Oo][Hh]")) %>%
       inner_join(quant_conc_tbl5()) %>%
       mutate(compound_name=factor(compound_name,levels=compounds)) %>%
       replace_na(list(itsd="peak")) %>%
@@ -4361,10 +4476,16 @@ indole_rawdf2_1 <- reactive({
                compound_name == "alloisolithocholic acid" |
                compound_name == "3-oxolithocholic acid" |
                itsd == "ITSD",
-             !grepl(pattern = "^CC[0-9]+", sampleid),
-             !grepl(pattern = "^MB", sampleid),
-             !grepl(pattern = "Hexane", sampleid),
-             !grepl(pattern = "Standard", sampleid)) %>%
+        !str_detect(sampleid, "[Mm][Bb]"),
+        !str_detect(sampleid, "[Pp][Oo][Oo][Ll][Ee][Dd]"),
+        !str_detect(sampleid, "[Bb][Hh][Ii][Qq][Cc]"),
+        !str_detect(sampleid, "[Pp][Ll][Aa][Ss][Mm][Aa]"),
+        !str_detect(sampleid, "[Hh][Ee][Xx][Aa][Nn][Ee][Ss]"),
+        !str_detect(sampleid, "[Ss][Tt][Aa][Nn][Dd][Aa][Rr][Dd]"),
+        !str_detect(sampleid, "50%_[Mm][Ee][Oo][Hh]"),
+        !str_detect(sampleid, "[Ee][Aa]_[Bb][Ll][Aa][Nn][Kk]"),
+        !str_detect(sampleid, "50%[Mm][Ee][Oo][Hh]"),
+        !grepl("[Cc][Cc][0-9]+", sampleid)) %>%
       mutate(peakarea = ifelse(peakarea <= 5000, 5000, peakarea),
              num = gsub("X","",num),
              num = as.numeric(num),
@@ -4932,10 +5053,16 @@ indole_rawdf2_1 <- reactive({
                sep="__") %>%
       mutate(num = gsub(pattern = "X", replacement = "", num)) %>%
       filter(itsd == "ITSD",
-             !grepl(pattern = "^CC[0-9]+", sampleid),
-             !grepl(pattern = "^MB", sampleid),
-             !grepl(pattern = "^Hexane", sampleid),
-             !grepl(pattern = "Standard", sampleid)) %>%
+             !str_detect(sampleid, "[Mm][Bb]"),
+             !str_detect(sampleid, "[Pp][Oo][Oo][Ll][Ee][Dd]"),
+             !str_detect(sampleid, "[Bb][Hh][Ii][Qq][Cc]"),
+             !str_detect(sampleid, "[Pp][Ll][Aa][Ss][Mm][Aa]"),
+             !str_detect(sampleid, "[Hh][Ee][Xx][Aa][Nn][Ee][Ss]"),
+             !str_detect(sampleid, "[Ss][Tt][Aa][Nn][Dd][Aa][Rr][Dd]"),
+             !str_detect(sampleid, "50%_[Mm][Ee][Oo][Hh]"),
+             !str_detect(sampleid, "[Ee][Aa]_[Bb][Ll][Aa][Nn][Kk]"),
+             !str_detect(sampleid, "50%[Mm][Ee][Oo][Hh]"),
+             !grepl("[Cc][Cc][0-9]+", sampleid)) %>%
       mutate(peakarea = ifelse(peakarea <= 5000, 5000, peakarea)) %>%
       group_by(batch, compound_name) %>%
       summarise(stdev = sd(peakarea),
@@ -4953,7 +5080,16 @@ indole_rawdf2_1 <- reactive({
       separate(Data.File,into=c("num","date","batch","sampleid","conc"),
                sep="__") %>%
       mutate(num = gsub(pattern = "X", replacement = "", num)) %>%
-      filter(itsd == "ITSD") %>%
+      filter(itsd == "ITSD",
+             !str_detect(sampleid, "[Mm][Bb]"),
+             !str_detect(sampleid, "[Pp][Oo][Oo][Ll][Ee][Dd]"),
+             !str_detect(sampleid, "[Bb][Hh][Ii][Qq][Cc]"),
+             !str_detect(sampleid, "[Pp][Ll][Aa][Ss][Mm][Aa]"),
+             !str_detect(sampleid, "[Hh][Ee][Xx][Aa][Nn][Ee][Ss]"),
+             !str_detect(sampleid, "[Ss][Tt][Aa][Nn][Dd][Aa][Rr][Dd]"),
+             !str_detect(sampleid, "50%_[Mm][Ee][Oo][Hh]"),
+             !str_detect(sampleid, "[Ee][Aa]_[Bb][Ll][Aa][Nn][Kk]"),
+             !str_detect(sampleid, "50%[Mm][Ee][Oo][Hh]")) %>%
       mutate(peakarea = ifelse(peakarea <= 5000, 5000, peakarea),
              cc_shape = ifelse(grepl("CC[0-9]+", sampleid), "CC Sample", "ITSD")) %>%
       left_join(rawdf_ba2()) %>%
@@ -5004,7 +5140,16 @@ indole_rawdf2_1 <- reactive({
       separate(Data.File,into=c("num","date","batch","sampleid","conc"),
   sep="__") %>%
   mutate(num = gsub(pattern = "X", replacement = "", num)) %>%
-  filter(itsd == "ITSD") %>%
+  filter(itsd == "ITSD",
+         !str_detect(sampleid, "[Mm][Bb]"),
+         !str_detect(sampleid, "[Pp][Oo][Oo][Ll][Ee][Dd]"),
+         !str_detect(sampleid, "[Bb][Hh][Ii][Qq][Cc]"),
+         !str_detect(sampleid, "[Pp][Ll][Aa][Ss][Mm][Aa]"),
+         !str_detect(sampleid, "[Hh][Ee][Xx][Aa][Nn][Ee][Ss]"),
+         !str_detect(sampleid, "[Ss][Tt][Aa][Nn][Dd][Aa][Rr][Dd]"),
+         !str_detect(sampleid, "50%_[Mm][Ee][Oo][Hh]"),
+         !str_detect(sampleid, "[Ee][Aa]_[Bb][Ll][Aa][Nn][Kk]"),
+         !str_detect(sampleid, "50%[Mm][Ee][Oo][Hh]")) %>%
   mutate(peakarea = ifelse(peakarea <= 5000, 5000, peakarea),
          cc_shape = ifelse(grepl("CC[0-9]+", sampleid), "CC Sample", "ITSD")) %>%
       left_join(rawdf_ba2()) %>%
@@ -5061,10 +5206,16 @@ indole_rawdf2_1 <- reactive({
                sep="__") %>%
       mutate(num = gsub(pattern = "X", replacement = "", num)) %>%
       filter(itsd == "ITSD",
-             !grepl(pattern = "^CC[0-9]+", sampleid),
-             !grepl(pattern = "^MB", sampleid),
-             !grepl(pattern = "Hexane", sampleid),
-             !grepl(pattern = "Standard", sampleid)) %>%
+             !str_detect(sampleid, "[Mm][Bb]"),
+             !str_detect(sampleid, "[Pp][Oo][Oo][Ll][Ee][Dd]"),
+             !str_detect(sampleid, "[Bb][Hh][Ii][Qq][Cc]"),
+             !str_detect(sampleid, "[Pp][Ll][Aa][Ss][Mm][Aa]"),
+             !str_detect(sampleid, "[Hh][Ee][Xx][Aa][Nn][Ee][Ss]"),
+             !str_detect(sampleid, "[Ss][Tt][Aa][Nn][Dd][Aa][Rr][Dd]"),
+             !str_detect(sampleid, "50%_[Mm][Ee][Oo][Hh]"),
+             !str_detect(sampleid, "[Ee][Aa]_[Bb][Ll][Aa][Nn][Kk]"),
+             !str_detect(sampleid, "50%[Mm][Ee][Oo][Hh]"),
+             !grepl("[Cc][Cc][0-9]+", sampleid)) %>%
       mutate(peakarea = ifelse(peakarea <= 5000, 5000, peakarea)) %>%
       group_by(batch, compound_name) %>%
       summarise(stdev = sd(peakarea),
@@ -6166,10 +6317,16 @@ return(p())
       inner_join(., conc_int_tms_sep(), by = c("num","date","batch","sampleid","conc")) %>%
       filter(itsd == "ITSD",
              compound_name %in% compounds,
-             !grepl(pattern = "^[Cc][Cc][0-9]+", sampleid),
-             !grepl(pattern = "^MB", sampleid),
-             !grepl(pattern = "^Hexane", sampleid),
-             !grepl(pattern = "Standard", sampleid)) %>%
+             !str_detect(sampleid, "[Mm][Bb]"),
+             !str_detect(sampleid, "[Pp][Oo][Oo][Ll][Ee][Dd]"),
+             !str_detect(sampleid, "[Bb][Hh][Ii][Qq][Cc]"),
+             !str_detect(sampleid, "[Pp][Ll][Aa][Ss][Mm][Aa]"),
+             !str_detect(sampleid, "[Hh][Ee][Xx][Aa][Nn][Ee][Ss]"),
+             !str_detect(sampleid, "[Ss][Tt][Aa][Nn][Dd][Aa][Rr][Dd]"),
+             !str_detect(sampleid, "50%_[Mm][Ee][Oo][Hh]"),
+             !str_detect(sampleid, "[Ee][Aa]_[Bb][Ll][Aa][Nn][Kk]"),
+             !str_detect(sampleid, "50%[Mm][Ee][Oo][Hh]"),
+             !grepl("CC[0-9]+", sampleid)) %>%
       mutate(peakarea = ifelse(peakarea <= 5000, 5000, peakarea)) %>%
       group_by(batch, compound_name, conc) %>%
       summarise(stdev = sd(peakarea),
@@ -6190,7 +6347,16 @@ return(p())
                sep="__") %>%
       inner_join(., conc_int_tms_sep(), by = c("num","date","batch","sampleid","conc")) %>%
       filter(itsd == "ITSD",
-             compound_name %in% compounds) %>%
+             compound_name %in% compounds,
+             !str_detect(sampleid, "[Mm][Bb]"),
+             !str_detect(sampleid, "[Pp][Oo][Oo][Ll][Ee][Dd]"),
+             !str_detect(sampleid, "[Bb][Hh][Ii][Qq][Cc]"),
+             !str_detect(sampleid, "[Pp][Ll][Aa][Ss][Mm][Aa]"),
+             !str_detect(sampleid, "[Hh][Ee][Xx][Aa][Nn][Ee][Ss]"),
+             !str_detect(sampleid, "[Ss][Tt][Aa][Nn][Dd][Aa][Rr][Dd]"),
+             !str_detect(sampleid, "50%_[Mm][Ee][Oo][Hh]"),
+             !str_detect(sampleid, "[Ee][Aa]_[Bb][Ll][Aa][Nn][Kk]"),
+             !str_detect(sampleid, "50%[Mm][Ee][Oo][Hh]")) %>%
       mutate(peakarea = ifelse(peakarea <= 5000, 5000, peakarea),
              cc_shape = ifelse(grepl("[Cc][Cc][0-9]+", sampleid), "CC Sample", "ITSD")) %>%
       filter(itsd == "ITSD") %>%
@@ -6246,7 +6412,16 @@ return(p())
                sep="__") %>%
       inner_join(., conc_int_tms_sep(), by = c("num","date","batch","sampleid","conc")) %>%
       filter(itsd == "ITSD",
-             compound_name %in% compounds) %>%
+             compound_name %in% compounds,
+             !str_detect(sampleid, "[Mm][Bb]"),
+             !str_detect(sampleid, "[Pp][Oo][Oo][Ll][Ee][Dd]"),
+             !str_detect(sampleid, "[Bb][Hh][Ii][Qq][Cc]"),
+             !str_detect(sampleid, "[Pp][Ll][Aa][Ss][Mm][Aa]"),
+             !str_detect(sampleid, "[Hh][Ee][Xx][Aa][Nn][Ee][Ss]"),
+             !str_detect(sampleid, "[Ss][Tt][Aa][Nn][Dd][Aa][Rr][Dd]"),
+             !str_detect(sampleid, "50%_[Mm][Ee][Oo][Hh]"),
+             !str_detect(sampleid, "[Ee][Aa]_[Bb][Ll][Aa][Nn][Kk]"),
+             !str_detect(sampleid, "50%[Mm][Ee][Oo][Hh]")) %>%
       mutate(peakarea = ifelse(peakarea <= 5000, 5000, peakarea),
              cc_shape = ifelse(grepl("[Cc][Cc][0-9]+", sampleid), "CC Sample", "ITSD")) %>%
       filter(itsd == "ITSD") %>%
@@ -6307,10 +6482,16 @@ return(p())
       inner_join(., conc_int_tms_sep(), by = c("num","date","batch","sampleid","conc")) %>%
       filter(itsd == "ITSD",
              compound_name %in% compounds,
-             !grepl(pattern = "^cc[0-9]+", sampleid),
-             !grepl(pattern = "^MB", sampleid),
-             !grepl(pattern = "Hexane", sampleid),
-             !grepl(pattern = "Standard", sampleid)) %>%
+             !str_detect(sampleid, "[Mm][Bb]"),
+             !str_detect(sampleid, "[Pp][Oo][Oo][Ll][Ee][Dd]"),
+             !str_detect(sampleid, "[Bb][Hh][Ii][Qq][Cc]"),
+             !str_detect(sampleid, "[Pp][Ll][Aa][Ss][Mm][Aa]"),
+             !str_detect(sampleid, "[Hh][Ee][Xx][Aa][Nn][Ee][Ss]"),
+             !str_detect(sampleid, "[Ss][Tt][Aa][Nn][Dd][Aa][Rr][Dd]"),
+             !str_detect(sampleid, "50%_[Mm][Ee][Oo][Hh]"),
+             !str_detect(sampleid, "[Ee][Aa]_[Bb][Ll][Aa][Nn][Kk]"),
+             !str_detect(sampleid, "50%[Mm][Ee][Oo][Hh]"),
+             !grepl("[Cc][Cc][0-9]+", sampleid)) %>%
       mutate(peakarea = ifelse(peakarea <= 5000, 5000, peakarea)) %>%
       group_by(batch, compound_name, conc) %>%
       summarise(stdev = sd(peakarea),
