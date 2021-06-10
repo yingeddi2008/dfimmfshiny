@@ -146,7 +146,7 @@ readin_meta_csv <- function(directory,na.value=0,recursive=F){
         select(sampleid,Data.File,Acq.Date.Time,compound,
                compound_name,conc,itsd,peakarea,status,filename) %>%
         mutate(peakarea=as.numeric(peakarea),
-               peakarea=ifelse(peakarea < na.value,na.value,peakarea))
+               peakarea=ifelse(peakarea < na.value,1,peakarea))
       
       dflist[[i]] <- int
     }
@@ -191,7 +191,7 @@ readin_meta_csv_single_file <- function(filename,na.value=0,recursive=F){
     select(sampleid,Data.File,Acq.Date.Time,compound,
            compound_name,conc,itsd,peakarea,status,filename) %>%
     mutate(peakarea=as.numeric(peakarea),
-           peakarea=ifelse(peakarea < na.value,na.value,peakarea),
+           peakarea=ifelse(peakarea < na.value,1,peakarea),
            compound_name=ifelse(grepl("[0-9]",compound_name),
                                 gsub("^X","",compound_name),compound_name))
   
@@ -233,7 +233,7 @@ readin_meta_csv_single_file_tms <- function(filename,na.value=0,recursive=F){
     select(sampleid,Data.File,Acq.Date.Time,compound,
            compound_name,conc,itsd,peakarea,status,filename) %>%
     mutate(peakarea=as.numeric(peakarea),
-           peakarea=ifelse(peakarea < na.value,na.value,peakarea),
+           peakarea=ifelse(peakarea < na.value,1,peakarea),
            compound_name=ifelse(grepl("[0-9]",compound_name),
                                 gsub("^X","",compound_name),compound_name),
            compound_name = gsub("\\.", "_", compound_name))
@@ -269,31 +269,31 @@ make_norm_conc_tbl <- function(df,
   
 }
 
-make_norm_conc_heatmap <- function(df,
-                                   dil_compounds = "Valerate,Phenol,Valine_D8,Proline_D7, Succinate",
-                                   conc_compounds = "Phenol"){
-  
-  #make df with average for conc and diluted
-  #dil_compounds=c("Valine_D8","Valerate")
-  #conc_compounds=c("Succinate","Proline","Phenol")
-  #dil_compounds <- "Valine_D8,Valerate"
-  
-  dil_compounds <- trimws(unlist(strsplit(dil_compounds,split=",")))
-  conc_compounds <- trimws(unlist(strsplit(conc_compounds,split=",")))
-  
-  int_conc <- tibble(compound_name = c(dil_compounds, conc_compounds),
-                     conc = c(rep("diluted",length(dil_compounds)),
-                              rep("concentrated",length(conc_compounds)))) %>% 
-    inner_join(df) %>%
-    filter(itsd=="ITSD") %>%
-    # dplyr::count(compound_name, conc) %>%
-    # dplyr::count(sampleid) %>%
-    group_by(compound_name) %>%
-    summarize(min_peak = ifelse(all(peakarea == 0), 0, min(peakarea[peakarea != 0])))
-  
-  return(int_conc)
-  
-}
+# make_norm_conc_heatmap <- function(df,
+#                                    dil_compounds = "Valerate,Phenol,Valine_D8,Proline_D7, Succinate",
+#                                    conc_compounds = "Phenol"){
+#   
+#   #make df with average for conc and diluted
+#   #dil_compounds=c("Valine_D8","Valerate")
+#   #conc_compounds=c("Succinate","Proline","Phenol")
+#   #dil_compounds <- "Valine_D8,Valerate"
+#   
+#   dil_compounds <- trimws(unlist(strsplit(dil_compounds,split=",")))
+#   conc_compounds <- trimws(unlist(strsplit(conc_compounds,split=",")))
+#   
+#   int_conc <- tibble(compound_name = c(dil_compounds, conc_compounds),
+#                      conc = c(rep("diluted",length(dil_compounds)),
+#                               rep("concentrated",length(conc_compounds)))) %>% 
+#     inner_join(df) %>%
+#     filter(itsd=="ITSD") %>%
+#     # dplyr::count(compound_name, conc) %>%
+#     # dplyr::count(sampleid) %>%
+#     group_by(compound_name) %>%
+#     summarize(min_peak = ifelse(all(peakarea == 0), 0, min(peakarea[peakarea != 0])))
+#   
+#   return(int_conc)
+#   
+# }
 
 
 get_indole_conc <- function(conc, compounds,series=11){
@@ -384,7 +384,7 @@ wddir <- "/Volumes/chaubard-lab/shiny_workspace/csvs/"
 
 ui <- fluidPage(
   # shinythemes::themeSelector(),
-  titlePanel("DFI Metabolomics QC (v1.8.6)"),
+  titlePanel("DFI Metabolomics QC (v1.8.7)"),
   br(),
   
   # CSV file selector -------------------------------------------------------
@@ -410,15 +410,15 @@ ui <- fluidPage(
                                       br(),
                                       textInput(inputId = "quant_conc",
                                                 label = "Quant con/dil:",
-                                                value = "dil,dil,dil,dil"),
+                                                value = "dil,dil,dil,conc"),
                                       h4("ITSD dilution calculation"),
-                                      numericInput("xfactor","Mult factor:",value = 11),
+                                      numericInput("xfactor","Mult factor:",value = 1),
                                       #numericInput("start","Enter concentration(s):",value = 100),
-                                      textInput("start","Enter concentration(s):","100"),
-                                      numericInput("series","dilution #",8),
+                                      textInput("start","Enter concentration(s):","100,25,12.5,50"),
+                                      numericInput("series","dilution #",10),
                                       br(),
                                       h4("Filters:"),
-                                      textInput("maxcc","Max conc(s) filter:","100,100,100,100"),
+                                      textInput("maxcc","Max conc(s) filter:","100,25,12.5,50"),
                                       textInput("mincc","Min conc(s) filter:","0,0,0,0"),
                          ),
                          mainPanel(
@@ -449,7 +449,6 @@ ui <- fluidPage(
                                       "#downloadData {background-color:green;color: white}"),
                            br(),
                            br(),
-                           # dataTableOutput("TEST"),
                            h4("Quantitative Results:"),
                            checkboxInput("qcfil_quant", "Remove QCs"),
                            downloadButton("quant_download", "Download PFBBr Quant Barplot"),
@@ -476,7 +475,7 @@ ui <- fluidPage(
                                       br(),
                                       numericInput("zero_val",
                                                    "minimum value:",
-                                                   value=5000)
+                                                   value=1000)
                          ),
                          mainPanel(
                            br(),
@@ -571,7 +570,7 @@ ui <- fluidPage(
                                       textInput("itsd_compounds","standards:", value="Serotonin,melatonin"),
                                       #textInput("conc_compounds","concentrated standards:",value="Proline_D7,Phenol"),
                                       br(),
-                                      numericInput("zero_val2","minimum value:",value=5000)
+                                      numericInput("zero_val2","minimum value:",value=100)
                          ),
                          mainPanel(
                            br(),
@@ -612,7 +611,7 @@ ui <- fluidPage(
                                       textInput("quant_conc5","Quant con/dil:",
                                                 value="dil,dil,dil,dil,dil,dil,dil,dil"),
                                       h4("ITSD dilution calculation"),
-                                      numericInput("xfactor5","Mult factor:",value = 11),
+                                      numericInput("xfactor5","Mult factor:",value = 1),
                                       #numericInput("start","Enter concentration(s):",value = 100),
                                       textInput("start5","Enter concentration(s):","125"),
                                       numericInput("series5","dilution #",10),
@@ -624,7 +623,7 @@ ui <- fluidPage(
                          mainPanel(
                            br(),
                            br(),
-                           # dataTableOutput("TEST5"),
+                           dataTableOutput("TEST5"),
                            dataTableOutput("conc5"),
                            #dataTableOutput("conc_tbl5"),
                            #dataTableOutput("cutoff_df5"),
@@ -675,17 +674,17 @@ ui <- fluidPage(
                                       #           value=""),
                                       numericInput("zero_val_bile_acid",
                                                    "",
-                                                   value=5000)
+                                                   value=3000)
                          ),
                          mainPanel(
                            br(),
+                           dataTableOutput("BATEST1"),
                            downloadButton("ba_norm_qc_report_download", "Download Bile Acid QC Norm Report", class = "butt"),
                            tags$style(type="text/css", "#ba_norm_qc_report_download {background-color:green;color: white}"),
-                           # dataTableOutput("TEST"),
                            # plotOutput("TEST_PLOT",
                            #            height = "800px",
                            #            width = "150%"),
-                           # dataTableOutput("BATEST1"),
+                           
                            # dataTableOutput("BATEST2"),
                            splitLayout(cellWidths = c("25%","75%"),
                                        uiOutput("compound_list_bile_acid"),
@@ -722,10 +721,10 @@ ui <- fluidPage(
                                       br(),
                                       numericInput("zero_val_tms",
                                                    "minimum value:",
-                                                   value=5000)
+                                                   value=1000)
                          ),
                          mainPanel(
-                           # dataTableOutput("TMSTEST1"),
+                           dataTableOutput("TMSTEST1"),
                            br(),
                            downloadButton("norm_qc_report_download_tms", "Download TMS QC Norm Report", class = "butt"),
                            tags$style(type="text/css", "#norm_qc_report_download_tms {background-color:green;color: white}"),
@@ -803,8 +802,14 @@ server <- function(input, output, session) {
   #make concentration table
   conc_tbl <- reactive({
     get_all_conc(input$start,
-                 compounds=input$compounds,series=input$series)
+                 compounds=input$compounds,
+                 series=input$series)
   })
+  
+  output$conc <- renderDataTable(
+    conc_tbl(),
+    options = list(pageLength=5)
+  )
   
   quant_conc_tbl <- reactive({
     
@@ -820,10 +825,7 @@ server <- function(input, output, session) {
   })
   
   
-  output$conc <- renderDataTable(
-    quant_conc_tbl(),
-    options = list(pageLength=5)
-  )
+
   
   #make cutoff reactive
   cutoff_df <- reactive({
@@ -841,6 +843,7 @@ server <- function(input, output, session) {
              maxcc=as.numeric(maxcc),
              mincc=as.numeric(mincc))
   })
+  
   
   # read in table as reactive 
   meta <- reactive({ readin_meta_csv_single_file(file.path(wddir,input$filename)) })
@@ -875,7 +878,7 @@ server <- function(input, output, session) {
   output$model <- renderDataTable(
     modelstart() %>%
       datatable() %>%
-      formatRound(c(2:4), 3) %>% 
+      formatRound(c(2:4), 3) %>%
       formatStyle(columns = c(2:4), 'text-align' = 'center')
   )
   
@@ -1197,7 +1200,7 @@ server <- function(input, output, session) {
              !str_detect(sampleid, "50%_[Mm][Ee][Oo][Hh]"),
              !str_detect(sampleid, "[Ee][Aa]_[Bb][Ll][Aa][Nn][Kk]"),
              !str_detect(sampleid, "50%[Mm][Ee][Oo][Hh]")) %>% 
-      mutate(peakarea = ifelse(peakarea <= 5000, 5000, peakarea),
+      mutate(peakarea = ifelse(peakarea <= input$zero_val, input$zero_val, peakarea),
              num = as.numeric(num),
              cc_shape = ifelse(grepl("CC[0-9]+", sampleid), "Calibration Curve Sample", "Standard Sample"))
   })
@@ -1220,7 +1223,7 @@ server <- function(input, output, session) {
              !str_detect(sampleid, "[Ee][Aa]_[Bb][Ll][Aa][Nn][Kk]"),
              !str_detect(sampleid, "50%[Mm][Ee][Oo][Hh]"),
              !grepl("[Cc][Cc][0-9]+", sampleid)) %>% 
-      mutate(peakarea = ifelse(peakarea <= 5000, 5000, peakarea)) %>% 
+      mutate(peakarea = ifelse(peakarea <= input$zero_val, input$zero_val, peakarea)) %>% 
       group_by(batch, compound_name) %>% 
       summarise(stdev = sd(peakarea),
                 average = mean(peakarea),
@@ -1336,7 +1339,7 @@ server <- function(input, output, session) {
                       fun.aggregate=mean) %>%
       separate(sampleid,into=c("num","date","batch","sampleid","conc"),
                sep="__") %>%
-      mutate(ITSD = ifelse(ITSD <= 5000, 5000, ITSD),
+      mutate(ITSD = ifelse(ITSD <= input$zero_val, input$zero_val, ITSD),
              norm_peak = peak / ITSD,
              curveLab = sampleid) %>%
       filter(grepl(pattern = "CC", sampleid)) %>%
@@ -1369,7 +1372,7 @@ server <- function(input, output, session) {
                       fun.aggregate=mean) %>%
       separate(sampleid,into=c("num","date","batch","sampleid","conc"),
                sep="__") %>%
-      mutate(ITSD = ifelse(ITSD <= 5000, 5000, ITSD),
+      mutate(ITSD = ifelse(ITSD <= input$zero_val, input$zero_val, ITSD),
              norm_peak = peak / ITSD,
              curveLab = sampleid,
              conc = ifelse(conc == "conc","Concentrated Standard", "Diluted Standard")) %>%
@@ -1419,7 +1422,7 @@ server <- function(input, output, session) {
              !str_detect(sampleid, "50%_[Mm][Ee][Oo][Hh]"),
              !str_detect(sampleid, "[Ee][Aa]_[Bb][Ll][Aa][Nn][Kk]"),
              !str_detect(sampleid, "50%[Mm][Ee][Oo][Hh]")) %>% 
-      mutate(peakarea = ifelse(peakarea <= 5000, 5000, peakarea)) %>% 
+      mutate(peakarea = ifelse(peakarea <= input$zero_val, input$zero_val, peakarea)) %>% 
       group_by(batch, compound_name) %>% 
       summarise(stdev = sd(peakarea),
                 average = mean(peakarea),
@@ -1643,6 +1646,10 @@ server <- function(input, output, session) {
   rawdf <- reactive({
     readin_meta_csv_single_file(file.path(wddir,input$filename),na.value = input$zero_val)
   })
+  
+  output$dfcheck <- renderDataTable(
+    rawdf()
+  )
 
   csv <- reactive({
 
@@ -1669,12 +1676,12 @@ server <- function(input, output, session) {
                        conc_compounds = as.character(input$conc_compounds))
   })
 
-  conc_int_heatmap <- reactive({
-
-    make_norm_conc_heatmap(rawdf(),
-                           dil_compounds = as.character(input$dil_compounds),
-                           conc_compounds = as.character(input$conc_compounds))
-  })
+  # conc_int_heatmap <- reactive({
+  # 
+  #   make_norm_conc_heatmap(rawdf(),
+  #                          dil_compounds = as.character(input$dil_compounds),
+  #                          conc_compounds = as.character(input$conc_compounds))
+  # })
 
   conc_int_sep <- reactive({
     conc_int() %>%
@@ -1714,44 +1721,31 @@ server <- function(input, output, session) {
   heatmap_plot <- function()({
     rawdf() %>%
       left_join(conc_filter()) %>%
-      replace_na(list(checked="concentrated")) %>%
       filter(conc==checked, is.na(itsd),
              !grepl("(__CC[0-9]+__)", sampleid)) %>%
-      select(-checked) %>%
       left_join(conc_int()) %>%
-      left_join(conc_int_heatmap()) %>%
+      # left_join(conc_int_heatmap()) %>%
+      mutate(norm_peak = peakarea / avg) %>%
       group_by(compound_name) %>% 
-      mutate(compound_med = median(peakarea)) %>% 
+      mutate(compound_med = median(norm_peak)) %>% 
       ungroup() %>% 
-      mutate(norm_peak = ifelse(is.finite(log((peakarea / compound_med), base = 2)),
-                                log((peakarea / compound_med), base = 2),
-                                (min_peak/10))) %>%
-      dplyr::select(sampleid, compound_name, norm_peak) %>%
-      spread(compound_name, norm_peak, fill = NA) %>%
+      mutate(heat_val = log((norm_peak / compound_med), base = 2)) %>%
+      dplyr::select(sampleid, compound_name, heat_val) %>%
+      spread(compound_name, heat_val, fill = NA) %>%
       reshape2::melt(id.vars=c("sampleid")) %>%
-      dplyr::rename(compound_name=variable,norm_peak=value) %>%
+      dplyr::rename(compound_name=variable,heat_val=value) %>%
       separate(sampleid,into=c("num","date","batch","sampleid","conc"),
                sep="\\_\\_") %>%
-      filter(!is.na(norm_peak)) %>%
+      filter(!is.na(heat_val)) %>%
       mutate(sampleid = ifelse(str_detect(sampleid, "[Mm][Bb]|[Pp][Oo][Oo][Ll][Ee][Dd]|[Bb][Hh][Ii][Qq][Cc]|[Pp][Ll][Aa][Ss][Mm][Aa]|[Hh][Ee][Xx][Aa][Nn][Ee][Ss]|[Ss][Tt][Aa][Nn][Dd][Aa][Rr][Dd]|50%_[Mm][Ee][Oo][Hh]|[Ee][Aa]_[Bb][Ll][Aa][Nn][Kk]|50%[Mm][Ee][Oo][hh]"),
                                paste(num, sampleid, conc, sep = "__"),
                                sampleid)) %>%
-      filter(!str_detect(sampleid, "[Mm][Bb]"),
-             !str_detect(sampleid, "[Pp][Oo][Oo][Ll][Ee][Dd]"),
-             !str_detect(sampleid, "[Bb][Hh][Ii][Qq][Cc]"),
-             !str_detect(sampleid, "[Pp][Ll][Aa][Ss][Mm][Aa]"),
-             !str_detect(sampleid, "[Hh][Ee][Xx][Aa][Nn][Ee][Ss]"),
-             !str_detect(sampleid, "[Ss][Tt][Aa][Nn][Dd][Aa][Rr][Dd]"),
-             !str_detect(sampleid, "50%_[Mm][Ee][Oo][Hh]"),
-             !str_detect(sampleid, "[Ee][Aa]_[Bb][Ll][Aa][Nn][Kk]"),
-             !str_detect(sampleid, "50%[Mm][Ee][Oo][Hh]"),
-             !grepl("CC[0-9]+", sampleid)) %>%
-      dplyr::select(sampleid, compound_name, norm_peak) %>%
-      mutate(norm_peak = round(norm_peak,5)) %>%
+      dplyr::select(sampleid, compound_name, heat_val) %>%
+      mutate(heat_val = round(heat_val,5)) %>%
       group_by(sampleid, compound_name) %>%
-      summarise(norm_peak = mean(norm_peak)) %>%
-      pivot_wider(names_from = compound_name, values_from = norm_peak) %>%
-      filter_all(all_vars(!is.infinite(.))) %>%
+      summarise(heat_val = mean(heat_val)) %>%
+      pivot_wider(names_from = compound_name, values_from = heat_val) %>%
+      # filter_all(all_vars(!is.infinite(.))) %>%
       drop_na(.) %>%
       column_to_rownames(., var = "sampleid") %>%
       as.matrix(.) %>%
@@ -1832,28 +1826,27 @@ server <- function(input, output, session) {
       filter(conc==checked, is.na(itsd),
              !grepl("(__CC[0-9]+__)", sampleid)) %>%
       left_join(conc_int()) %>%
-      left_join(conc_int_heatmap()) %>%
+      # left_join(conc_int_heatmap()) %>%
+      mutate(norm_peak = peakarea / avg) %>%
       group_by(compound_name) %>% 
-      mutate(compound_med = median(peakarea)) %>% 
+      mutate(compound_med = median(norm_peak)) %>% 
       ungroup() %>% 
-      mutate(norm_peak = ifelse(is.finite(log((peakarea / compound_med), base = 2)),
-                                log((peakarea / compound_med), base = 2),
-                                (min_peak/10))) %>%
-      dplyr::select(sampleid, compound_name, norm_peak) %>%
-      spread(compound_name, norm_peak, fill = NA) %>%
+      mutate(heat_val = log((norm_peak / compound_med), base = 2)) %>%
+      dplyr::select(sampleid, compound_name, heat_val) %>%
+      spread(compound_name, heat_val, fill = NA) %>%
       reshape2::melt(id.vars=c("sampleid")) %>%
-      dplyr::rename(compound_name=variable,norm_peak=value) %>%
+      dplyr::rename(compound_name=variable,heat_val=value) %>%
       separate(sampleid,into=c("num","date","batch","sampleid","conc"),
                sep="\\_\\_") %>%
-      filter(!is.na(norm_peak)) %>%
+      filter(!is.na(heat_val)) %>%
       mutate(sampleid = ifelse(str_detect(sampleid, "[Mm][Bb]|[Pp][Oo][Oo][Ll][Ee][Dd]|[Bb][Hh][Ii][Qq][Cc]|[Pp][Ll][Aa][Ss][Mm][Aa]|[Hh][Ee][Xx][Aa][Nn][Ee][Ss]|[Ss][Tt][Aa][Nn][Dd][Aa][Rr][Dd]|50%_[Mm][Ee][Oo][Hh]|[Ee][Aa]_[Bb][Ll][Aa][Nn][Kk]|50%[Mm][Ee][Oo][hh]"),
                                paste(num, sampleid, conc, sep = "__"),
                                sampleid)) %>%
-      dplyr::select(sampleid, compound_name, norm_peak) %>%
-      mutate(norm_peak = round(norm_peak,5)) %>%
+      dplyr::select(sampleid, compound_name, heat_val) %>%
+      mutate(heat_val = round(heat_val,5)) %>%
       group_by(sampleid, compound_name) %>%
-      summarise(norm_peak = mean(norm_peak)) %>%
-      pivot_wider(names_from = compound_name, values_from = norm_peak) %>%
+      summarise(heat_val = mean(heat_val)) %>%
+      pivot_wider(names_from = compound_name, values_from = heat_val) %>%
       # filter_all(all_vars(!is.infinite(.))) %>%
       drop_na(.) %>%
       column_to_rownames(., var = "sampleid") %>%
@@ -2049,7 +2042,7 @@ server <- function(input, output, session) {
              !str_detect(sampleid, "[Ee][Aa]_[Bb][Ll][Aa][Nn][Kk]"),
              !str_detect(sampleid, "50%[Mm][Ee][Oo][Hh]"),
              !grepl("[Cc][Cc][0-9]+", sampleid)) %>%
-      mutate(peakarea = ifelse(peakarea <= 5000, 5000, peakarea)) %>%
+      mutate(peakarea = ifelse(peakarea <= input$zero_val, input$zero_val, peakarea)) %>%
       group_by(batch, compound_name, conc) %>%
       summarise(stdev = sd(peakarea),
                 average = mean(peakarea),
@@ -2078,7 +2071,7 @@ server <- function(input, output, session) {
              !str_detect(sampleid, "50%_[Mm][Ee][Oo][Hh]"),
              !str_detect(sampleid, "[Ee][Aa]_[Bb][Ll][Aa][Nn][Kk]"),
              !str_detect(sampleid, "50%[Mm][Ee][Oo][Hh]")) %>%
-      mutate(peakarea = ifelse(peakarea <= 5000, 5000, peakarea),
+      mutate(peakarea = ifelse(peakarea <= input$zero_val, input$zero_val, peakarea),
              cc_shape = ifelse(grepl("CC[0-9]+", sampleid), "CC Sample", "ITSD")) %>%
       inner_join(., conc_int_sep(), by = c("num","date","batch","sampleid","conc")) %>%
       filter(itsd == "ITSD") %>%
@@ -2143,7 +2136,7 @@ server <- function(input, output, session) {
              !str_detect(sampleid, "50%_[Mm][Ee][Oo][Hh]"),
              !str_detect(sampleid, "[Ee][Aa]_[Bb][Ll][Aa][Nn][Kk]"),
              !str_detect(sampleid, "50%[Mm][Ee][Oo][Hh]")) %>%
-      mutate(peakarea = ifelse(peakarea <= 5000, 5000, peakarea),
+      mutate(peakarea = ifelse(peakarea <= input$zero_val, input$zero_val, peakarea),
              cc_shape = ifelse(grepl("CC[0-9]+", sampleid), "CC Sample", "ITSD")) %>%
       inner_join(., conc_int_sep(), by = c("num","date","batch","sampleid","conc")) %>%
       filter(itsd == "ITSD") %>%
@@ -2213,7 +2206,7 @@ server <- function(input, output, session) {
              !str_detect(sampleid, "[Ee][Aa]_[Bb][Ll][Aa][Nn][Kk]"),
              !str_detect(sampleid, "50%[Mm][Ee][Oo][Hh]"),
              !grepl("[Cc][Cc][0-9]+", sampleid)) %>%
-      mutate(peakarea = ifelse(peakarea <= 5000, 5000, peakarea)) %>%
+      mutate(peakarea = ifelse(peakarea <= input$zero_val, input$zero_val, peakarea)) %>% 
       group_by(batch, compound_name, conc) %>%
       summarise(stdev = sd(peakarea),
                 average = mean(peakarea),
@@ -2537,7 +2530,7 @@ server <- function(input, output, session) {
         facet_grid(~compound_name, space = "free_x") +
         scale_fill_igv() +
         xlab("\nSampleID") +
-        ylab("Concentration (ng/uL)\n") +
+        ylab("Concentration (uM)\n") +
         guides(fill = guide_legend(title="Compound    "))
       
     } else{
@@ -2593,7 +2586,7 @@ server <- function(input, output, session) {
         facet_grid(~compound_name, space = "free_x") +
         scale_fill_igv() +
         xlab("\nSampleID") +
-        ylab("Concentration (ng/uL)\n") +
+        ylab("Concentration (uM)\n") +
         guides(fill = guide_legend(title="Compound    "))
     }
   })
@@ -2695,7 +2688,7 @@ server <- function(input, output, session) {
              !str_detect(sampleid, "50%_[Mm][Ee][Oo][Hh]"),
              !str_detect(sampleid, "[Ee][Aa]_[Bb][Ll][Aa][Nn][Kk]"),
              !str_detect(sampleid, "50%[Mm][Ee][Oo][Hh]")) %>%
-      mutate(peakarea = ifelse(peakarea <= 5000, 5000, peakarea),
+      mutate(peakarea = ifelse(peakarea <= input$zero_val2, input$zero_val2, peakarea),
              num = gsub("X","",num),
              num = as.numeric(num),
              cc_shape = ifelse(grepl("cc[0-9]+", sampleid), "Calibration Curve Sample", "Standard Sample"))
@@ -2723,7 +2716,7 @@ server <- function(input, output, session) {
              !str_detect(sampleid, "[Ee][Aa]_[Bb][Ll][Aa][Nn][Kk]"),
              !str_detect(sampleid, "50%[Mm][Ee][Oo][Hh]"),
              !grepl("[Cc][Cc][0-9]+", sampleid)) %>%
-      mutate(peakarea = ifelse(peakarea <= 5000, 5000, peakarea),
+      mutate(peakarea = ifelse(peakarea <= input$zero_val2, input$zero_val2, peakarea),
              num = gsub("X","",num),
              num = as.numeric(num)) %>%
       group_by(batch, compound_name) %>%
@@ -2938,7 +2931,7 @@ server <- function(input, output, session) {
                                           color = "black", face = "bold"),
                 plot.margin = margin(1,0.5,0.5,0.5, unit = 'cm')) +
           facet_wrap(~compound_name+conc,scales="free", ncol = 2) +
-          xlab("\nConcentration (ng/uL)") +
+          xlab("\nConcentration (uM)") +
           ylab("Normalized Peak Area\n") +
           ggtitle("Calibration Curves")
       }else{
@@ -2979,7 +2972,7 @@ server <- function(input, output, session) {
                                           color = "black", face = "bold"),
                 plot.margin = margin(1,0.5,0.5,0.5, unit = 'cm')) +
           facet_wrap(~compound_name+conc,scales="free", ncol = 2) +
-          xlab("\nConcentration (ng/uL)") +
+          xlab("\nConcentration (uM)") +
           ylab("Normalized Peak Area\n") +
           ggtitle("Calibration Curves")
 
@@ -3010,7 +3003,7 @@ server <- function(input, output, session) {
                !str_detect(sampleid, "[Ee][Aa]_[Bb][Ll][Aa][Nn][Kk]"),
                !str_detect(sampleid, "50%[Mm][Ee][Oo][Hh]"),
                !grepl("[Cc][Cc][0-9]+", sampleid)) %>%
-        mutate(peakarea = ifelse(peakarea <= 5000, 5000, peakarea),
+        mutate(peakarea = ifelse(peakarea <= input$zero_val2, input$zero_val2, peakarea),
                num = gsub("X","",num),
                num = as.numeric(num)) %>%
         group_by(batch, compound_name) %>%
@@ -3139,7 +3132,7 @@ server <- function(input, output, session) {
   
   indole_plasma_plot = reactive({
     ggplot(indole_meta2_6(), aes(x = batch, y = quant_val, shape = replicate, color = compound_name, 
-                          label = ifelse(is.na(quant_val),"NA",paste0(round(quant_val, digits = 1), "ng/uL")))) +
+                          label = ifelse(is.na(quant_val),"NA",paste0(round(quant_val, digits = 1), "uM")))) +
       geom_point(size = 3) +
       geom_point(indole_meta2_5(), mapping = aes(x= batch, y = average),
                  color = "black", shape = 3, size = 3, inherit.aes = F) +
@@ -3186,7 +3179,7 @@ server <- function(input, output, session) {
                                                  title.position="top",
                                                  label.position = "right"))+
       xlab("\nBatch Number") +
-      ylab("Concentration (ng/uL)\n") +
+      ylab("Concentration (uM)\n") +
       ggtitle("Plasma QC Summary\n") +
       facet_wrap(~compound_name, nrow = 3, scales = "free_y")
   })
@@ -3305,22 +3298,21 @@ heatmap_plot2 <- function()({
       is.na(itsd),
       !grepl("[Cc][Cc][0-9]+", Data.File)) %>%
     left_join(indole_conc_int2()) %>%
+    mutate(norm_peak = peakarea / avg) %>%
     group_by(compound_name) %>% 
-    mutate(compound_med = median(peakarea)) %>% 
+    mutate(compound_med = median(norm_peak)) %>% 
     ungroup() %>% 
-    mutate(norm_peak = ifelse(is.finite(log((peakarea / compound_med), base = 2)),
-                              log((peakarea / compound_med), base = 2),
-                              (min_peak/10)),
+    mutate(heat_val = log((norm_peak / compound_med), base = 2),
            compound_name=gsub("\\_[0-9]+","",compound_name)) %>%
     separate(Data.File,into=c("num","date","batch","sampleid","conc"),
              sep="__") %>%
-    dplyr::select(num, date, batch, sampleid, conc, compound_name, norm_peak) %>%
+    dplyr::select(num, date, batch, sampleid, conc, compound_name, heat_val) %>%
     ungroup() %>%
     add_count(date,batch,sampleid, compound_name, conc) %>%
     mutate(sampleid = ifelse(n > 1, paste(num, sampleid, sep = "__"), sampleid),
            sampleid = gsub(pattern = "X", replacement = "", sampleid)) %>%
-    dplyr::select(sampleid, compound_name, norm_peak) %>%
-    pivot_wider(names_from = compound_name, values_from = norm_peak, values_fill = NA) %>%
+    dplyr::select(sampleid, compound_name, heat_val) %>%
+    pivot_wider(names_from = compound_name, values_from = heat_val, values_fill = NA) %>%
     filter(!str_detect(sampleid, "[Mm][Bb]"),
            !str_detect(sampleid, "[Pp][Oo][Oo][Ll][Ee][Dd]"),
            !str_detect(sampleid, "[Bb][Hh][Ii][Qq][Cc]"),
@@ -3354,22 +3346,21 @@ heatmap_data2 <- function()({
       is.na(itsd),
       !grepl("[Cc][Cc][0-9]+", Data.File)) %>%
     left_join(indole_conc_int2()) %>%
+    mutate(norm_peak = peakarea / avg) %>%
     group_by(compound_name) %>%
-    mutate(compound_med = median(peakarea)) %>%
+    mutate(compound_med = median(norm_peak)) %>%
     ungroup() %>%
-    mutate(norm_peak = ifelse(is.finite(log((peakarea / compound_med), base = 2)),
-                              log((peakarea / compound_med), base = 2),
-                              (min_peak/10)),
+    mutate(heat_val = log((norm_peak / compound_med), base = 2),
            compound_name=gsub("\\_[0-9]+","",compound_name)) %>%
     separate(Data.File,into=c("num","date","batch","sampleid","conc"),
              sep="__") %>%
-    dplyr::select(num, date, batch, sampleid, conc, compound_name, norm_peak) %>%
+    dplyr::select(num, date, batch, sampleid, conc, compound_name, heat_val) %>%
     ungroup() %>%
     add_count(date,batch,sampleid, compound_name, conc) %>%
     mutate(sampleid = ifelse(n > 1, paste(num, sampleid, sep = "__"), sampleid),
            sampleid = gsub(pattern = "X", replacement = "", sampleid)) %>%
-    dplyr::select(sampleid, compound_name, norm_peak) %>%
-    pivot_wider(names_from = compound_name, values_from = norm_peak, values_fill = NA) %>%
+    dplyr::select(sampleid, compound_name, heat_val) %>%
+    pivot_wider(names_from = compound_name, values_from = heat_val, values_fill = NA) %>%
     filter(!str_detect(sampleid, "[Mm][Bb]"),
            !str_detect(sampleid, "[Pp][Oo][Oo][Ll][Ee][Dd]"),
            !str_detect(sampleid, "[Bb][Hh][Ii][Qq][Cc]"),
@@ -3411,9 +3402,7 @@ heatmap_table <- function()({
     group_by(compound_name) %>% 
     mutate(compound_med = median(peakarea)) %>% 
     ungroup() %>% 
-    mutate(norm_peak = ifelse(is.finite(log((peakarea / compound_med), base = 2)),
-                              log((peakarea / compound_med), base = 2),
-                              (min_peak/10)),
+    mutate(heat_val = log((norm_peak / compound_med), base = 2),
            compound_name=gsub("\\_[0-9]+","",compound_name)) %>%
     separate(Data.File,into=c("num","date","batch","sampleid","conc"),
              sep="__") %>%
@@ -3590,7 +3579,7 @@ indole_rawdf2 <- reactive({
              !str_detect(sampleid, "[Ee][Aa]_[Bb][Ll][Aa][Nn][Kk]"),
              !str_detect(sampleid, "50%[Mm][Ee][Oo][Hh]"),
              !grepl("[Cc][Cc][0-9]+", sampleid)) %>%
-      mutate(peakarea = ifelse(peakarea <= 5000, 5000, peakarea)) %>%
+      mutate(peakarea = ifelse(peakarea <= input$zero_val2, input$zero_val2, peakarea)) %>%
       group_by(batch, compound_name) %>%
       summarise(stdev = sd(peakarea),
                 average = mean(peakarea),
@@ -3620,7 +3609,7 @@ indole_rawdf2 <- reactive({
              !str_detect(sampleid, "50%_[Mm][Ee][Oo][Hh]"),
              !str_detect(sampleid, "[Ee][Aa]_[Bb][Ll][Aa][Nn][Kk]"),
              !str_detect(sampleid, "50%[Mm][Ee][Oo][Hh]")) %>%
-      mutate(peakarea = ifelse(peakarea <= 5000, 5000, peakarea),
+      mutate(peakarea = ifelse(peakarea <= input$zero_val2, input$zero_val2, peakarea),
              cc_shape = ifelse(grepl("cc[0-9]+", sampleid), "CC Sample", "ITSD")) %>%
       filter(itsd == "ITSD") %>%
       left_join(indole_rawdf2()) %>%
@@ -3685,7 +3674,7 @@ indole_norm_plot2 <-function()({
              !str_detect(sampleid, "50%_[Mm][Ee][Oo][Hh]"),
              !str_detect(sampleid, "[Ee][Aa]_[Bb][Ll][Aa][Nn][Kk]"),
              !str_detect(sampleid, "50%[Mm][Ee][Oo][Hh]")) %>%
-      mutate(peakarea = ifelse(peakarea <= 5000, 5000, peakarea),
+      mutate(peakarea = ifelse(peakarea <= input$zero_val2, input$zero_val2, peakarea),
              cc_shape = ifelse(grepl("cc[0-9]+", sampleid), "CC Sample", "ITSD")) %>%
       filter(itsd == "ITSD") %>%
       left_join(indole_rawdf2()) %>%
@@ -3755,7 +3744,7 @@ indole_rawdf2_1 <- reactive({
              !str_detect(sampleid, "[Ee][Aa]_[Bb][Ll][Aa][Nn][Kk]"),
              !str_detect(sampleid, "50%[Mm][Ee][Oo][Hh]"),
              !grepl("[Cc][Cc][0-9]+", sampleid)) %>%
-      mutate(peakarea = ifelse(peakarea <= 5000, 5000, peakarea)) %>%
+      mutate(peakarea = ifelse(peakarea <= input$zero_val2, input$zero_val2, peakarea)) %>%
       group_by(batch, compound_name) %>%
       summarise(stdev = sd(peakarea),
                 average = mean(peakarea),
@@ -4242,7 +4231,7 @@ indole_rawdf2_1 <- reactive({
         !str_detect(sampleid, "50%_[Mm][Ee][Oo][Hh]"),
         !str_detect(sampleid, "[Ee][Aa]_[Bb][Ll][Aa][Nn][Kk]"),
         !str_detect(sampleid, "50%[Mm][Ee][Oo][Hh]")) %>%
-      mutate(peakarea = ifelse(peakarea <= 5000, 5000, peakarea),
+      mutate(peakarea = ifelse(peakarea <= input$zero_val_bile_acid, input$zero_val_bile_acid, peakarea),
              num = gsub("X","",num),
              num = as.numeric(num),
              cc_shape = ifelse(grepl("CC[0-9]+", sampleid), "Calibration Curve Sample", "Standard Sample"))
@@ -4273,7 +4262,7 @@ indole_rawdf2_1 <- reactive({
         !str_detect(sampleid, "[Ee][Aa]_[Bb][Ll][Aa][Nn][Kk]"),
         !str_detect(sampleid, "50%[Mm][Ee][Oo][Hh]"),
         !grepl("[Cc][Cc][0-9]+", sampleid)) %>%
-      mutate(peakarea = ifelse(peakarea <= 5000, 5000, peakarea),
+      mutate(peakarea = ifelse(peakarea <= input$zero_val_bile_acid, input$zero_val_bile_acid, peakarea),
              num = gsub("X","",num),
              num = as.numeric(num)) %>%
       group_by(batch, compound_name) %>%
@@ -4486,7 +4475,7 @@ indole_rawdf2_1 <- reactive({
         !str_detect(sampleid, "[Ee][Aa]_[Bb][Ll][Aa][Nn][Kk]"),
         !str_detect(sampleid, "50%[Mm][Ee][Oo][Hh]"),
         !grepl("[Cc][Cc][0-9]+", sampleid)) %>%
-      mutate(peakarea = ifelse(peakarea <= 5000, 5000, peakarea),
+      mutate(peakarea = ifelse(peakarea <= input$zero_val_bile_acid, input$zero_val_bile_acid, peakarea),
              num = gsub("X","",num),
              num = as.numeric(num),
              cc_shape = ifelse(grepl("CC[0-9]+", sampleid), "CC Sample", "ITSD")) %>%
@@ -4742,10 +4731,6 @@ indole_rawdf2_1 <- reactive({
 
     return(vars_ba)
   })
-
-  # output$BATEST1 <- renderDataTable(
-  #   rawdf_ba()
-  # )
   
   output$compound_list_bile_acid <- renderUI({
     checkboxGroupInput("check_compounds_bile_acid","Check = diluted",
@@ -4767,14 +4752,14 @@ indole_rawdf2_1 <- reactive({
   #   conc_int_bile_acid()
   # )
 
-  conc_int_heatmap_bile_acid <- reactive({
-
-    rawdf_ba() %>%
-      filter(itsd=="ITSD") %>%
-      group_by(compound_name) %>%
-      summarize(min_peak = ifelse(all(peakarea == 0), 0, min(peakarea[peakarea != 0])))
-
-  })
+  # conc_int_heatmap_bile_acid <- reactive({
+  # 
+  #   rawdf_ba() %>%
+  #     filter(itsd=="ITSD") %>%
+  #     group_by(compound_name) %>%
+  #     summarize(min_peak = ifelse(all(peakarea == 0), 0, min(peakarea[peakarea != 0])))
+  # 
+  # })
 
   # output$conc_int_bile_acid <- renderDataTable(
   #   conc_int_bile_acid()
@@ -4812,25 +4797,24 @@ indole_rawdf2_1 <- reactive({
              !grepl("(CC[0-9]+)", sampleid)) %>%
       select(-checked) %>%
       left_join(conc_int_bile_acid()) %>%
+      mutate(norm_peak = peakarea / avg) %>%
       group_by(compound_name) %>% 
-      mutate(compound_med = median(peakarea)) %>% 
+      mutate(compound_med = median(norm_peak)) %>% 
       ungroup() %>% 
-      mutate(norm_peak = ifelse(is.finite(log((peakarea / compound_med), base = 2)),
-                                log((peakarea / compound_med), base = 2),
-                                (min_peak/10))) %>%
+      mutate(heat_val = log((norm_peak / compound_med), base = 2)) %>%
       separate(Data.File,into=c("num","date","batch","sampleid","conc"),
                sep="__") %>%
       mutate(sampleid = ifelse(str_detect(sampleid, "[Mm][Bb]|[Pp][Oo][Oo][Ll][Ee][Dd]|[Bb][Hh][Ii][Qq][Cc]|[Pp][Ll][Aa][Ss][Mm][Aa]|[Hh][Ee][Xx][Aa][Nn][Ee][Ss]|[Ss][Tt][Aa][Nn][Dd][Aa][Rr][Dd]|50%_[Mm][Ee][Oo][Hh]|[Ee][Aa]_[Bb][Ll][Aa][Nn][Kk]|50%[Mm][Ee][Oo][hh]"),
                                paste(num, sampleid, conc, sep = "__"),
                                sampleid)) %>%
       mutate(sampleid = gsub(pattern = "X", replacement = "", sampleid)) %>%
-      dplyr::select(num, date, batch, sampleid, conc, compound_name, norm_peak) %>%
+      dplyr::select(num, date, batch, sampleid, conc, compound_name, heat_val) %>%
       ungroup() %>%
       add_count(date,batch,sampleid, compound_name, conc) %>%
       mutate(sampleid = ifelse(n > 1, paste(num, sampleid, sep = "__"), sampleid),
              sampleid = gsub(pattern = "X", replacement = "", sampleid)) %>%
-      dplyr::select(sampleid, compound_name, norm_peak) %>%
-      pivot_wider(names_from = compound_name, values_from = norm_peak, values_fill = NA) %>%
+      dplyr::select(sampleid, compound_name, heat_val) %>%
+      pivot_wider(names_from = compound_name, values_from = heat_val, values_fill = NA) %>%
       filter(!str_detect(sampleid, "[Mm][Bb]"),
              !str_detect(sampleid, "[Pp][Oo][Oo][Ll][Ee][Dd]"),
              !str_detect(sampleid, "[Bb][Hh][Ii][Qq][Cc]"),
@@ -4864,25 +4848,24 @@ indole_rawdf2_1 <- reactive({
              !grepl("(CC[0-9]+)", sampleid)) %>%
       select(-checked) %>%
       left_join(conc_int_bile_acid()) %>%
+      mutate(norm_peak = peakarea / avg) %>%
       group_by(compound_name) %>% 
-      mutate(compound_med = median(peakarea)) %>% 
+      mutate(compound_med = median(norm_peak)) %>% 
       ungroup() %>% 
-      mutate(norm_peak = ifelse(is.finite(log((peakarea / compound_med), base = 2)),
-                                log((peakarea / compound_med), base = 2),
-                                (min_peak/10))) %>%
+      mutate(heat_val = log((norm_peak / compound_med), base = 2)) %>%
       separate(Data.File,into=c("num","date","batch","sampleid","conc"),
                sep="__") %>%
       mutate(sampleid = ifelse(str_detect(sampleid, "[Mm][Bb]|[Pp][Oo][Oo][Ll][Ee][Dd]|[Bb][Hh][Ii][Qq][Cc]|[Pp][Ll][Aa][Ss][Mm][Aa]|[Hh][Ee][Xx][Aa][Nn][Ee][Ss]|[Ss][Tt][Aa][Nn][Dd][Aa][Rr][Dd]|50%_[Mm][Ee][Oo][Hh]|[Ee][Aa]_[Bb][Ll][Aa][Nn][Kk]|50%[Mm][Ee][Oo][hh]"),
                                paste(num, sampleid, conc, sep = "__"),
                                sampleid)) %>%
       mutate(sampleid = gsub(pattern = "X", replacement = "", sampleid)) %>%
-      dplyr::select(num, date, batch, sampleid, conc, compound_name, norm_peak) %>%
+      dplyr::select(num, date, batch, sampleid, conc, compound_name, heat_val) %>%
       ungroup() %>%
       add_count(date,batch,sampleid, compound_name, conc) %>%
-      mutate(sampleid = ifelse(n > 1, paste(num, sampleid,sep = "__"), sampleid),
+      mutate(sampleid = ifelse(n > 1, paste(num, sampleid, sep = "__"), sampleid),
              sampleid = gsub(pattern = "X", replacement = "", sampleid)) %>%
-      dplyr::select(sampleid, compound_name, norm_peak) %>%
-      pivot_wider(names_from = compound_name, values_from = norm_peak, values_fill = NA) %>%
+      dplyr::select(sampleid, compound_name, heat_val) %>%
+      pivot_wider(names_from = compound_name, values_from = heat_val, values_fill = NA) %>%
       filter(!str_detect(sampleid, "[Mm][Bb]"),
              !str_detect(sampleid, "[Pp][Oo][Oo][Ll][Ee][Dd]"),
              !str_detect(sampleid, "[Bb][Hh][Ii][Qq][Cc]"),
@@ -4897,6 +4880,10 @@ indole_rawdf2_1 <- reactive({
       as.matrix(.) %>%
       t(.)
   })
+  
+  output$BATEST1 <- renderDataTable(
+    heatmap_data_bile_acid()
+  )
 
   output$heatmap_download_bile_acid <- downloadHandler(
     filename = function(){
@@ -5063,7 +5050,7 @@ indole_rawdf2_1 <- reactive({
              !str_detect(sampleid, "[Ee][Aa]_[Bb][Ll][Aa][Nn][Kk]"),
              !str_detect(sampleid, "50%[Mm][Ee][Oo][Hh]"),
              !grepl("[Cc][Cc][0-9]+", sampleid)) %>%
-      mutate(peakarea = ifelse(peakarea <= 5000, 5000, peakarea)) %>%
+      mutate(peakarea = ifelse(peakarea <= input$zero_val_bile_acid, input$zero_val_bile_acid, peakarea)) %>%
       group_by(batch, compound_name) %>%
       summarise(stdev = sd(peakarea),
                 average = mean(peakarea),
@@ -5090,7 +5077,7 @@ indole_rawdf2_1 <- reactive({
              !str_detect(sampleid, "50%_[Mm][Ee][Oo][Hh]"),
              !str_detect(sampleid, "[Ee][Aa]_[Bb][Ll][Aa][Nn][Kk]"),
              !str_detect(sampleid, "50%[Mm][Ee][Oo][Hh]")) %>%
-      mutate(peakarea = ifelse(peakarea <= 5000, 5000, peakarea),
+      mutate(peakarea = ifelse(peakarea <= input$zero_val_bile_acid, input$zero_val_bile_acid, peakarea),
              cc_shape = ifelse(grepl("CC[0-9]+", sampleid), "CC Sample", "ITSD")) %>%
       left_join(rawdf_ba2()) %>%
       mutate(num = as.numeric(num),
@@ -5150,7 +5137,7 @@ indole_rawdf2_1 <- reactive({
          !str_detect(sampleid, "50%_[Mm][Ee][Oo][Hh]"),
          !str_detect(sampleid, "[Ee][Aa]_[Bb][Ll][Aa][Nn][Kk]"),
          !str_detect(sampleid, "50%[Mm][Ee][Oo][Hh]")) %>%
-  mutate(peakarea = ifelse(peakarea <= 5000, 5000, peakarea),
+  mutate(peakarea = ifelse(peakarea <= input$zero_val_bile_acid, input$zero_val_bile_acid, peakarea),
          cc_shape = ifelse(grepl("CC[0-9]+", sampleid), "CC Sample", "ITSD")) %>%
       left_join(rawdf_ba2()) %>%
       mutate(num = as.numeric(num),
@@ -5216,7 +5203,7 @@ indole_rawdf2_1 <- reactive({
              !str_detect(sampleid, "[Ee][Aa]_[Bb][Ll][Aa][Nn][Kk]"),
              !str_detect(sampleid, "50%[Mm][Ee][Oo][Hh]"),
              !grepl("[Cc][Cc][0-9]+", sampleid)) %>%
-      mutate(peakarea = ifelse(peakarea <= 5000, 5000, peakarea)) %>%
+      mutate(peakarea = ifelse(peakarea <= input$zero_val_bile_acid, input$zero_val_bile_acid, peakarea)) %>%
       group_by(batch, compound_name) %>%
       summarise(stdev = sd(peakarea),
                 average = mean(peakarea),
@@ -5785,7 +5772,7 @@ return(p())
                                                    title.position="top",
                                                    label.position = "right"))+
         xlab("\nBatch Number") +
-        ylab("Concentration (ng/uL)\n") +
+        ylab("Concentration (uM)\n") +
         facet_wrap(~compound_name, nrow = 3, scales = "free_y")
     })
     
@@ -6011,17 +5998,19 @@ return(p())
 
 
   # This generates the minimum peak areas for all internal standards in a sample
-  conc_int_heatmap_tms <- reactive({
-    
-    compounds_tms = unlist(strsplit(input$compounds_tms, split=","))
-    compounds_tms = factor(compounds_tms,level=unique(compounds_tms))
-    
-    rawdf_tms() %>%
-      filter(itsd=="ITSD",
-             compound_name %in% compounds_tms) %>%
-      group_by(compound_name) %>%
-      summarize(min_peak = ifelse(all(peakarea == 0), 0, min(peakarea[peakarea != 0])))
-  })
+  # conc_int_heatmap_tms <- reactive({
+  #   
+  #   compounds_tms = unlist(strsplit(input$compounds_tms, split=","))
+  #   compounds_tms = factor(compounds_tms,level=unique(compounds_tms))
+  #   
+  #   rawdf_tms() %>%
+  #     filter(itsd=="ITSD",
+  #            compound_name %in% compounds_tms) %>%
+  #     group_by(compound_name) %>%
+  #     summarize(min_peak = ifelse(all(peakarea == 0), 0, min(peakarea[peakarea != 0])))
+  # })
+  
+
   
   output$compound_list_tms <- renderUI({
     checkboxGroupInput("check_compounds_tms","Check = split1to5",
@@ -6091,7 +6080,7 @@ return(p())
   
   
   #make heatmap:
-  heatmap_plot_tms <- function()({
+  heatmap_plot_tms <- reactive({
     rawdf_tms() %>%
       left_join(conc_filter_tms()) %>%
       replace_na(list(checked="nosplit"))%>%
@@ -6099,20 +6088,19 @@ return(p())
              !grepl("(__CC[0-9]+__)", sampleid)) %>%
       select(-checked) %>%
       left_join(conc_int_tms()) %>%
-      left_join(conc_int_heatmap_tms()) %>%
+      # left_join(conc_int_heatmap_tms()) %>%
+      mutate(norm_peak = peakarea / avg) %>%
       group_by(compound_name) %>% 
-      mutate(compound_med = median(peakarea)) %>% 
-      ungroup() %>% 
-      mutate(norm_peak = ifelse(is.finite(log((peakarea / compound_med), base = 2)),
-                                log((peakarea / compound_med), base = 2),
-                                (min_peak/10))) %>%
-      dplyr::select(sampleid, compound_name, norm_peak) %>%
-      spread(compound_name, norm_peak, fill = NA) %>%
+      mutate(compound_med = median(norm_peak)) %>%
+      ungroup() %>%
+      mutate(heat_val = log((norm_peak / compound_med), base = 2)) %>%
+      dplyr::select(sampleid, compound_name, heat_val) %>%
+      spread(compound_name, heat_val, fill = NA) %>%
       reshape2::melt(id.vars=c("sampleid")) %>%
-      dplyr::rename(compound_name=variable,norm_peak=value) %>%
+      dplyr::rename(compound_name=variable,heat_val=value) %>%
       separate(sampleid,into=c("num","date","batch","sampleid","conc"),
                sep="\\_\\_") %>%
-      filter(!is.na(norm_peak)) %>%
+      filter(!is.na(heat_val)) %>%
       mutate(sampleid = ifelse(str_detect(sampleid, "[Mm][Bb]|[Pp][Oo][Oo][Ll][Ee][Dd]|[Bb][Hh][Ii][Qq][Cc]|[Pp][Ll][Aa][Ss][Mm][Aa]|[Hh][Ee][Xx][Aa][Nn][Ee][Ss]|[Ss][Tt][Aa][Nn][Dd][Aa][Rr][Dd]|50%_[Mm][Ee][Oo][Hh]|[Ee][Aa]_[Bb][Ll][Aa][Nn][Kk]|50%[Mm][Ee][Oo][hh]"),
                                paste(num, sampleid, conc, sep = "__"),
                                sampleid)) %>%
@@ -6126,11 +6114,11 @@ return(p())
              !str_detect(sampleid, "[Ee][Aa]_[Bb][Ll][Aa][Nn][Kk]"),
              !str_detect(sampleid, "50%[Mm][Ee][Oo][Hh]"),
              !grepl("CC[0-9]+", sampleid)) %>%
-      dplyr::select(sampleid, compound_name, norm_peak) %>%
-      mutate(norm_peak = round(norm_peak,5)) %>%
+      dplyr::select(sampleid, compound_name, heat_val) %>%
+      mutate(heat_val = round(heat_val,5)) %>%
       group_by(sampleid, compound_name) %>%
-      summarise(norm_peak = mean(norm_peak)) %>%
-      pivot_wider(names_from = compound_name, values_from = norm_peak) %>%
+      summarise(heat_val = mean(heat_val)) %>%
+      pivot_wider(names_from = compound_name, values_from = heat_val) %>%
       # filter_all(all_vars(!is.infinite(.))) %>%
       drop_na(.) %>%
       column_to_rownames(., var = "sampleid") %>%
@@ -6144,39 +6132,53 @@ return(p())
       )
   })
 
+  # output$TMSTEST1 <- renderDataTable(
+  #   heatmap_plot_tms()
+  # )
   
   output$heatmap_plot_tms <- renderPlot(
     heatmap_plot_tms()
   )
 
-  heatmap_data_tms <- function()({
+  heatmap_data_tms <- reactive({
     rawdf_tms() %>%
       left_join(conc_filter_tms()) %>%
+      replace_na(list(checked="nosplit"))%>%
       filter(conc==checked, is.na(itsd),
              !grepl("(__CC[0-9]+__)", sampleid)) %>%
+      select(-checked) %>%
       left_join(conc_int_tms()) %>%
-      left_join(conc_int_heatmap_tms()) %>%
+      # left_join(conc_int_heatmap_tms()) %>%
+      mutate(norm_peak = peakarea / avg) %>%
       group_by(compound_name) %>% 
-      mutate(compound_med = median(peakarea)) %>% 
-      ungroup() %>% 
-      mutate(norm_peak = ifelse(is.finite(log((peakarea / compound_med), base = 2)),
-                                log((peakarea / compound_med), base = 2),
-                                (min_peak/10))) %>%
-      dplyr::select(sampleid, compound_name, norm_peak) %>%
-      spread(compound_name, norm_peak, fill = NA) %>%
+      mutate(compound_med = median(norm_peak)) %>%
+      ungroup() %>%
+      mutate(heat_val = log((norm_peak / compound_med), base = 2)) %>%
+      dplyr::select(sampleid, compound_name, heat_val) %>%
+      spread(compound_name, heat_val, fill = NA) %>%
       reshape2::melt(id.vars=c("sampleid")) %>%
-      dplyr::rename(compound_name=variable,norm_peak=value) %>%
+      dplyr::rename(compound_name=variable,heat_val=value) %>%
       separate(sampleid,into=c("num","date","batch","sampleid","conc"),
                sep="\\_\\_") %>%
-      filter(!is.na(norm_peak)) %>%
+      filter(!is.na(heat_val)) %>%
       mutate(sampleid = ifelse(str_detect(sampleid, "[Mm][Bb]|[Pp][Oo][Oo][Ll][Ee][Dd]|[Bb][Hh][Ii][Qq][Cc]|[Pp][Ll][Aa][Ss][Mm][Aa]|[Hh][Ee][Xx][Aa][Nn][Ee][Ss]|[Ss][Tt][Aa][Nn][Dd][Aa][Rr][Dd]|50%_[Mm][Ee][Oo][Hh]|[Ee][Aa]_[Bb][Ll][Aa][Nn][Kk]|50%[Mm][Ee][Oo][hh]"),
                                paste(num, sampleid, conc, sep = "__"),
                                sampleid)) %>%
-      dplyr::select(sampleid, compound_name, norm_peak) %>%
-      mutate(norm_peak = round(norm_peak,5)) %>%
+      filter(!str_detect(sampleid, "[Mm][Bb]"),
+             !str_detect(sampleid, "[Pp][Oo][Oo][Ll][Ee][Dd]"),
+             !str_detect(sampleid, "[Bb][Hh][Ii][Qq][Cc]"),
+             !str_detect(sampleid, "[Pp][Ll][Aa][Ss][Mm][Aa]"),
+             !str_detect(sampleid, "[Hh][Ee][Xx][Aa][Nn][Ee][Ss]"),
+             !str_detect(sampleid, "[Ss][Tt][Aa][Nn][Dd][Aa][Rr][Dd]"),
+             !str_detect(sampleid, "50%_[Mm][Ee][Oo][Hh]"),
+             !str_detect(sampleid, "[Ee][Aa]_[Bb][Ll][Aa][Nn][Kk]"),
+             !str_detect(sampleid, "50%[Mm][Ee][Oo][Hh]"),
+             !grepl("CC[0-9]+", sampleid)) %>%
+      dplyr::select(sampleid, compound_name, heat_val) %>%
+      mutate(heat_val = round(heat_val,5)) %>%
       group_by(sampleid, compound_name) %>%
-      summarise(norm_peak = mean(norm_peak)) %>%
-      pivot_wider(names_from = compound_name, values_from = norm_peak) %>%
+      summarise(heat_val = mean(heat_val)) %>%
+      pivot_wider(names_from = compound_name, values_from = heat_val) %>%
       # filter_all(all_vars(!is.infinite(.))) %>%
       drop_na(.) %>%
       column_to_rownames(., var = "sampleid") %>%
@@ -6215,7 +6217,7 @@ return(p())
                !grepl("(__CC[0-9]+__)", sampleid)) %>%
         select(-checked) %>%
         left_join(conc_int_tms()) %>%
-        mutate(norm_peak=peakarea / avg) %>%
+        mutate(norm_peak = peakarea / avg) %>%
         dplyr::select(sampleid, compound_name, norm_peak) %>%
         spread(compound_name, norm_peak, fill = NA) %>%
         reshape2::melt(id.vars=c("sampleid")) %>%
@@ -6327,7 +6329,7 @@ return(p())
              !str_detect(sampleid, "[Ee][Aa]_[Bb][Ll][Aa][Nn][Kk]"),
              !str_detect(sampleid, "50%[Mm][Ee][Oo][Hh]"),
              !grepl("CC[0-9]+", sampleid)) %>%
-      mutate(peakarea = ifelse(peakarea <= 5000, 5000, peakarea)) %>%
+      mutate(peakarea = ifelse(peakarea <= input$zero_val_tms, input$zero_val_tms, peakarea)) %>%
       group_by(batch, compound_name, conc) %>%
       summarise(stdev = sd(peakarea),
                 average = mean(peakarea),
@@ -6357,7 +6359,7 @@ return(p())
              !str_detect(sampleid, "50%_[Mm][Ee][Oo][Hh]"),
              !str_detect(sampleid, "[Ee][Aa]_[Bb][Ll][Aa][Nn][Kk]"),
              !str_detect(sampleid, "50%[Mm][Ee][Oo][Hh]")) %>%
-      mutate(peakarea = ifelse(peakarea <= 5000, 5000, peakarea),
+      mutate(peakarea = ifelse(peakarea <= input$zero_val_tms, input$zero_val_tms, peakarea),
              cc_shape = ifelse(grepl("[Cc][Cc][0-9]+", sampleid), "CC Sample", "ITSD")) %>%
       filter(itsd == "ITSD") %>%
       left_join(rawdf2_tms()) %>%
@@ -6422,7 +6424,7 @@ return(p())
              !str_detect(sampleid, "50%_[Mm][Ee][Oo][Hh]"),
              !str_detect(sampleid, "[Ee][Aa]_[Bb][Ll][Aa][Nn][Kk]"),
              !str_detect(sampleid, "50%[Mm][Ee][Oo][Hh]")) %>%
-      mutate(peakarea = ifelse(peakarea <= 5000, 5000, peakarea),
+      mutate(peakarea = ifelse(peakarea <= input$zero_val_tms, input$zero_val_tms, peakarea),
              cc_shape = ifelse(grepl("[Cc][Cc][0-9]+", sampleid), "CC Sample", "ITSD")) %>%
       filter(itsd == "ITSD") %>%
       left_join(rawdf2_tms()) %>%
@@ -6492,7 +6494,7 @@ return(p())
              !str_detect(sampleid, "[Ee][Aa]_[Bb][Ll][Aa][Nn][Kk]"),
              !str_detect(sampleid, "50%[Mm][Ee][Oo][Hh]"),
              !grepl("[Cc][Cc][0-9]+", sampleid)) %>%
-      mutate(peakarea = ifelse(peakarea <= 5000, 5000, peakarea)) %>%
+      mutate(peakarea = ifelse(peakarea <= input$zero_val_tms, input$zero_val_tms, peakarea)) %>%
       group_by(batch, compound_name, conc) %>%
       summarise(stdev = sd(peakarea),
                 average = mean(peakarea),
