@@ -363,7 +363,10 @@ readin_bile_csv_single_file <- function(filename,na.value=0,recursive=F){
     mutate(filename=filename,
            compound_name=gsub("D[0-9]+\\-","",compound_name),
            compound_name=tolower(compound_name),
-           conc=ifelse(grepl("dil",conc),"diluted","concentrated"))
+           conc=ifelse(grepl("dil",conc),"diluted","concentrated"),
+           peakarea=as.numeric(peakarea),
+           peakarea=ifelse(peakarea < na.value,1,peakarea))
+  
   
   return(int)
 }
@@ -384,7 +387,7 @@ wddir <- "/Volumes/chaubard-lab/shiny_workspace/csvs/"
 
 ui <- fluidPage(
   # shinythemes::themeSelector(),
-  titlePanel("DFI Metabolomics QC (v1.8.7)"),
+  titlePanel("DFI Metabolomics QC (v1.8.8)"),
   br(),
   
   # CSV file selector -------------------------------------------------------
@@ -420,6 +423,11 @@ ui <- fluidPage(
                                       h4("Filters:"),
                                       textInput("maxcc","Max conc(s) filter:","100,25,12.5,50"),
                                       textInput("mincc","Min conc(s) filter:","0,0,0,0"),
+                                      br(),
+                                      br(),
+                                      numericInput("quant_zero_val",
+                                                   "Minimum value:",
+                                                   value=1000),
                          ),
                          mainPanel(
                            br(),
@@ -517,7 +525,11 @@ ui <- fluidPage(
                                       br(),
                                       h4("Filters:"),
                                       textAreaInput("maxcc2","Max conc(s) filter:","909,909,909,909,909,909,909,909,909,909,909"),
-                                      textInput("mincc2","Min conc(s) filter:","0,0,0,0,0,0,0,0,0,0,0"),
+                                      textInput("mincc2","Min conc(s) filter:","0,0,0,0,0,0,0,0,0,0,0"),                                                     br(),
+                                      br(),
+                                      numericInput("quant_zero_val2",
+                                                   "Minimum value:",
+                                                   value=100),
                          ),
                          mainPanel(
                            br(),
@@ -619,6 +631,9 @@ ui <- fluidPage(
                                       h4("Filters:"),
                                       textInput("maxcc5","Max conc(s) filter:","125,125,125,125,125,125,125,125"),
                                       textInput("mincc5","Min conc(s) filter:","0,0,0,0,0,0,0,0"),
+                                      numericInput("quant_zero_val_bile_acid",
+                                                   "",
+                                                   value=3000),
                          ),
                          mainPanel(
                            br(),
@@ -846,8 +861,8 @@ server <- function(input, output, session) {
   
   
   # read in table as reactive 
-  meta <- reactive({ readin_meta_csv_single_file(file.path(wddir,input$filename)) })
-  
+  meta <- reactive({ readin_meta_csv_single_file(file.path(wddir,input$filename),na.value = input$quant_zero_val) })
+
   #show models and make plots
   modelstart <- reactive({
     
@@ -2298,7 +2313,7 @@ server <- function(input, output, session) {
 
 
   # read in table as reactive
-  indole_meta <- reactive({ readin_meta_csv_single_file(file.path(wddir,input$filename)) })
+  indole_meta <- reactive({ readin_meta_csv_single_file(file.path(wddir,input$filename), na.value = input$quant_zero_val2) })
 
   #show models and make plots
   modelstart2 <- reactive({
@@ -3857,7 +3872,7 @@ indole_rawdf2_1 <- reactive({
   )
 
   # read in table as reactive
-  meta5 <- reactive({ readin_bile_csv_single_file(file.path(wddir,input$filename)) })
+  meta5 <- reactive({ readin_bile_csv_single_file(file.path(wddir,input$filename), na.value = input$quant_zero_val_bile_acid) })
 
   #show models and make plots
   modelstart5 <- reactive({
@@ -5259,6 +5274,603 @@ indole_rawdf2_1 <- reactive({
   
   
   
+  # TMS normalization tab -------------------------------------------------------
+  
+  rawdf_tms <- reactive({
+    readin_meta_csv_single_file_tms(file.path(wddir,input$filename),na.value = input$zero_val_tms)
+  })
+  
+  # This generates a list of all compounds except for the internal standards
+  csv_tms <- reactive({
+    
+    vars_tms <- rawdf_tms() %>%
+      mutate(compound_name=as.character(compound_name)) %>%
+      arrange(desc(compound_name)) %>%
+      filter(is.na(itsd)) %>% # This filters FOR samples that are NOT internal standards
+      distinct(compound_name) %>%
+      `$`(compound_name) 
+    
+    return(vars_tms)
+  })
+  
+  # This generates the average and median peak areas for all internal standards in a sample
+  conc_int_tms <- reactive({
+    
+    compounds_tms = unlist(strsplit(input$compounds_tms, split=","))
+    compounds_tms = factor(compounds_tms,level=unique(compounds_tms))
+    
+    rawdf_tms() %>%
+      filter(itsd=="ITSD",
+             compound_name %in% compounds_tms) %>%
+      group_by(sampleid) %>%
+      summarize(avg=mean(peakarea),
+                med=median(peakarea))
+    
+  })
+  
+  
+  conc_int_tms_sep <- reactive({
+    conc_int_tms() %>%
+      separate(sampleid,into=c("num","date","batch","sampleid","conc"),
+               sep="__")
+  })
+  
+  
+  # This generates the minimum peak areas for all internal standards in a sample
+  # conc_int_heatmap_tms <- reactive({
+  #   
+  #   compounds_tms = unlist(strsplit(input$compounds_tms, split=","))
+  #   compounds_tms = factor(compounds_tms,level=unique(compounds_tms))
+  #   
+  #   rawdf_tms() %>%
+  #     filter(itsd=="ITSD",
+  #            compound_name %in% compounds_tms) %>%
+  #     group_by(compound_name) %>%
+  #     summarize(min_peak = ifelse(all(peakarea == 0), 0, min(peakarea[peakarea != 0])))
+  # })
+  
+  
+  
+  output$compound_list_tms <- renderUI({
+    checkboxGroupInput("check_compounds_tms","Check = split1to5",
+                       choices=csv_tms(),
+                       inline=F)
+  })
+  
+  #make boxplots:
+  raw_boxplots_tms <- reactive({
+    
+    rawdf_tms() %>%
+      filter(is.na(itsd)) %>%
+      replace_na(list(itsd="not itsd")) %>%
+      ggplot(aes(y=compound_name,x=peakarea)) +
+      geom_boxplot(outlier.shape = NA) +
+      geom_jitter(width=0.1,height=0.1,alpha=0.3) +
+      theme_bw() +
+      theme(strip.text.x=element_text(size=15),
+            axis.text.y=element_text(size=13)) +
+      ylab("") +
+      xlab("peak area") +
+      facet_grid(itsd ~ conc,scales="free_y",space="free") +
+      scale_x_continuous(trans=log_epsilon_trans(epsilon=1000))
+    
+  })
+  
+  output$raw_boxplots_tms <- renderPlot(
+    raw_boxplots_tms()
+  )
+  
+  #subset based on checkboxes.. make a dataframe of compounds in same order as checkboxes with input as a column
+  conc_filter_tms <- reactive({
+    
+    if(length(as.list(input$check_compounds_tms)) > 0){
+      
+      leftovervars <- csv_tms()[ !(csv_tms() %in% input$check_compounds_tms) ]
+      
+      tibble(checked = rep("split1to5", length(input$check_compounds_tms)),
+             compound_name = input$check_compounds_tms) %>%
+        bind_rows(tibble(checked = rep("nosplit", length(leftovervars)),
+                         compound_name = leftovervars)
+        )
+    }else{
+      
+      tibble(checked = "nosplit",
+             compound_name = csv_tms())
+    }
+  })
+  
+  subset_conc_tms <- reactive({
+    
+    rawdf_tms() %>%
+      left_join(conc_filter_tms()) %>%
+      replace_na(list(checked="nosplit")) %>%
+      filter(conc==checked) %>%
+      select(-checked) %>%
+      left_join(conc_int_tms()) %>%
+      mutate(norm_peak=peakarea / avg)
+  })
+  
+  output$conc_filter_tms <- renderDataTable(
+    subset_conc_tms() %>%
+      datatable() %>%
+      formatRound(c("norm_peak"), 3) %>%
+      formatStyle(columns = c("norm_peak"), 'text-align' = 'center')
+  )
+  
+  
+  #make heatmap:
+  heatmap_plot_tms <- reactive({
+    rawdf_tms() %>%
+      left_join(conc_filter_tms()) %>%
+      replace_na(list(checked="nosplit"))%>%
+      filter(conc==checked, is.na(itsd),
+             !grepl("(__CC[0-9]+__)", sampleid)) %>%
+      select(-checked) %>%
+      left_join(conc_int_tms()) %>%
+      # left_join(conc_int_heatmap_tms()) %>%
+      mutate(norm_peak = peakarea / avg) %>%
+      group_by(compound_name) %>% 
+      mutate(compound_med = median(norm_peak)) %>%
+      ungroup() %>%
+      mutate(heat_val = log((norm_peak / compound_med), base = 2)) %>%
+      dplyr::select(sampleid, compound_name, heat_val) %>%
+      spread(compound_name, heat_val, fill = NA) %>%
+      reshape2::melt(id.vars=c("sampleid")) %>%
+      dplyr::rename(compound_name=variable,heat_val=value) %>%
+      separate(sampleid,into=c("num","date","batch","sampleid","conc"),
+               sep="\\_\\_") %>%
+      filter(!is.na(heat_val)) %>%
+      mutate(sampleid = ifelse(str_detect(sampleid, "[Mm][Bb]|[Pp][Oo][Oo][Ll][Ee][Dd]|[Bb][Hh][Ii][Qq][Cc]|[Pp][Ll][Aa][Ss][Mm][Aa]|[Hh][Ee][Xx][Aa][Nn][Ee][Ss]|[Ss][Tt][Aa][Nn][Dd][Aa][Rr][Dd]|50%_[Mm][Ee][Oo][Hh]|[Ee][Aa]_[Bb][Ll][Aa][Nn][Kk]|50%[Mm][Ee][Oo][hh]"),
+                               paste(num, sampleid, conc, sep = "__"),
+                               sampleid)) %>%
+      filter(!str_detect(sampleid, "[Mm][Bb]"),
+             !str_detect(sampleid, "[Pp][Oo][Oo][Ll][Ee][Dd]"),
+             !str_detect(sampleid, "[Bb][Hh][Ii][Qq][Cc]"),
+             !str_detect(sampleid, "[Pp][Ll][Aa][Ss][Mm][Aa]"),
+             !str_detect(sampleid, "[Hh][Ee][Xx][Aa][Nn][Ee][Ss]"),
+             !str_detect(sampleid, "[Ss][Tt][Aa][Nn][Dd][Aa][Rr][Dd]"),
+             !str_detect(sampleid, "50%_[Mm][Ee][Oo][Hh]"),
+             !str_detect(sampleid, "[Ee][Aa]_[Bb][Ll][Aa][Nn][Kk]"),
+             !str_detect(sampleid, "50%[Mm][Ee][Oo][Hh]"),
+             !grepl("CC[0-9]+", sampleid)) %>%
+      dplyr::select(sampleid, compound_name, heat_val) %>%
+      mutate(heat_val = round(heat_val,5)) %>%
+      group_by(sampleid, compound_name) %>%
+      summarise(heat_val = mean(heat_val)) %>%
+      pivot_wider(names_from = compound_name, values_from = heat_val) %>%
+      # filter_all(all_vars(!is.infinite(.))) %>%
+      drop_na(.) %>%
+      column_to_rownames(., var = "sampleid") %>%
+      as.matrix(.) %>%
+      t(.) %>%
+      pheatmap(., scale = "none",
+               cellheight = nrow(heatmap_data_tms()) / (nrow(heatmap_data_tms())*0.075),
+               cellwidth = ncol(heatmap_data_tms()) / (ncol(heatmap_data_tms())*0.0825)+1.5,
+               angle_col = "90",
+               color=colorRampPalette(c("navy", "white", "red"))(50),
+      )
+  })
+  
+  # output$TMSTEST1 <- renderDataTable(
+  #   heatmap_plot_tms()
+  # )
+  
+  output$heatmap_plot_tms <- renderPlot(
+    heatmap_plot_tms()
+  )
+  
+  heatmap_data_tms <- reactive({
+    rawdf_tms() %>%
+      left_join(conc_filter_tms()) %>%
+      replace_na(list(checked="nosplit"))%>%
+      filter(conc==checked, is.na(itsd),
+             !grepl("(__CC[0-9]+__)", sampleid)) %>%
+      select(-checked) %>%
+      left_join(conc_int_tms()) %>%
+      # left_join(conc_int_heatmap_tms()) %>%
+      mutate(norm_peak = peakarea / avg) %>%
+      group_by(compound_name) %>% 
+      mutate(compound_med = median(norm_peak)) %>%
+      ungroup() %>%
+      mutate(heat_val = log((norm_peak / compound_med), base = 2)) %>%
+      dplyr::select(sampleid, compound_name, heat_val) %>%
+      spread(compound_name, heat_val, fill = NA) %>%
+      reshape2::melt(id.vars=c("sampleid")) %>%
+      dplyr::rename(compound_name=variable,heat_val=value) %>%
+      separate(sampleid,into=c("num","date","batch","sampleid","conc"),
+               sep="\\_\\_") %>%
+      filter(!is.na(heat_val)) %>%
+      mutate(sampleid = ifelse(str_detect(sampleid, "[Mm][Bb]|[Pp][Oo][Oo][Ll][Ee][Dd]|[Bb][Hh][Ii][Qq][Cc]|[Pp][Ll][Aa][Ss][Mm][Aa]|[Hh][Ee][Xx][Aa][Nn][Ee][Ss]|[Ss][Tt][Aa][Nn][Dd][Aa][Rr][Dd]|50%_[Mm][Ee][Oo][Hh]|[Ee][Aa]_[Bb][Ll][Aa][Nn][Kk]|50%[Mm][Ee][Oo][hh]"),
+                               paste(num, sampleid, conc, sep = "__"),
+                               sampleid)) %>%
+      filter(!str_detect(sampleid, "[Mm][Bb]"),
+             !str_detect(sampleid, "[Pp][Oo][Oo][Ll][Ee][Dd]"),
+             !str_detect(sampleid, "[Bb][Hh][Ii][Qq][Cc]"),
+             !str_detect(sampleid, "[Pp][Ll][Aa][Ss][Mm][Aa]"),
+             !str_detect(sampleid, "[Hh][Ee][Xx][Aa][Nn][Ee][Ss]"),
+             !str_detect(sampleid, "[Ss][Tt][Aa][Nn][Dd][Aa][Rr][Dd]"),
+             !str_detect(sampleid, "50%_[Mm][Ee][Oo][Hh]"),
+             !str_detect(sampleid, "[Ee][Aa]_[Bb][Ll][Aa][Nn][Kk]"),
+             !str_detect(sampleid, "50%[Mm][Ee][Oo][Hh]"),
+             !grepl("CC[0-9]+", sampleid)) %>%
+      dplyr::select(sampleid, compound_name, heat_val) %>%
+      mutate(heat_val = round(heat_val,5)) %>%
+      group_by(sampleid, compound_name) %>%
+      summarise(heat_val = mean(heat_val)) %>%
+      pivot_wider(names_from = compound_name, values_from = heat_val) %>%
+      # filter_all(all_vars(!is.infinite(.))) %>%
+      drop_na(.) %>%
+      column_to_rownames(., var = "sampleid") %>%
+      as.matrix(.) %>%
+      t(.)
+  })
+  
+  # output$TEST4 <- renderDataTable(
+  #   heatmap_data_tms()
+  # )
+  
+  output$heatmap_download_tms <- downloadHandler(
+    filename = function(){
+      paste0("normalized_heatmap_",input$filename,"_",Sys.Date(),".pdf")
+    },
+    content = function(file) {
+      pdf(file,
+          height = nrow(heatmap_data_tms()) / (nrow(heatmap_data_tms())*0.035),
+          width = (ncol(heatmap_data_tms()) / (ncol(heatmap_data_tms())*0.07))+1.5
+      )
+      heatmap_plot_tms()
+      dev.off()
+    },
+    contentType = 'PDF'
+  )
+  
+  #download table
+  #make wide table
+  norm_wide_tbl_tms <- reactive({
+    
+    if(input$qcfil_tms==F){
+      rawdf_tms() %>%
+        left_join(conc_filter_tms()) %>%
+        replace_na(list(checked="nosplit")) %>%
+        filter(conc==checked, is.na(itsd),
+               !grepl("(__CC[0-9]+__)", sampleid)) %>%
+        select(-checked) %>%
+        left_join(conc_int_tms()) %>%
+        mutate(norm_peak = peakarea / avg) %>%
+        dplyr::select(sampleid, compound_name, norm_peak) %>%
+        spread(compound_name, norm_peak, fill = NA) %>%
+        reshape2::melt(id.vars=c("sampleid")) %>%
+        dplyr::rename(compound_name=variable,norm_peak=value) %>%
+        separate(sampleid,into=c("num","date","batch","sampleid","conc"),
+                 sep="__") %>%
+        filter(!is.na(norm_peak)) %>%
+        mutate(sampleid = ifelse(str_detect(sampleid, "[Mm][Bb]|[Pp][Oo][Oo][Ll][Ee][Dd]|[Bb][Hh][Ii][Qq][Cc]|[Pp][Ll][Aa][Ss][Mm][Aa]|[Hh][Ee][Xx][Aa][Nn][Ee][Ss]|[Ss][Tt][Aa][Nn][Dd][Aa][Rr][Dd]|50%_[Mm][Ee][Oo][Hh]|[Ee][Aa]_[Bb][Ll][Aa][Nn][Kk]|50%[Mm][Ee][Oo][hh]"),
+                                 paste(num, sampleid, conc, sep = "__"),
+                                 sampleid)) %>%
+        dplyr::select(sampleid, compound_name, norm_peak) %>%
+        mutate(norm_peak = round(norm_peak,5)) %>%
+        group_by(sampleid, compound_name) %>%
+        summarise(norm_peak = mean(norm_peak)) %>%
+        #     # reshape2::dcast(sampleid ~ compound_name, value.var = "norm_peak") %>%
+        arrange(compound_name) %>%
+        pivot_wider(names_from = compound_name, values_from = norm_peak)
+      # select(-num)
+    }else{
+      rawdf_tms() %>%
+        left_join(conc_filter_tms()) %>%
+        replace_na(list(checked="nosplit")) %>%
+        filter(conc==checked, is.na(itsd)) %>%
+        select(-checked) %>%
+        left_join(conc_int_tms()) %>%
+        mutate(norm_peak=peakarea / avg) %>%
+        dplyr::select(sampleid, compound_name, norm_peak) %>%
+        spread(compound_name, norm_peak, fill = NA) %>%
+        reshape2::melt(id.vars=c("sampleid")) %>%
+        dplyr::rename(compound_name=variable,norm_peak=value) %>%
+        separate(sampleid,into=c("num","date","batch","sampleid","conc"),
+                 sep="__") %>%
+        mutate(sampleid = ifelse(str_detect(sampleid, "[Mm][Bb]|[Pp][Oo][Oo][Ll][Ee][Dd]|[Bb][Hh][Ii][Qq][Cc]|[Pp][Ll][Aa][Ss][Mm][Aa]|[Hh][Ee][Xx][Aa][Nn][Ee][Ss]|[Ss][Tt][Aa][Nn][Dd][Aa][Rr][Dd]|50%_[Mm][Ee][Oo][Hh]|[Ee][Aa]_[Bb][Ll][Aa][Nn][Kk]|50%[Mm][Ee][Oo][hh]"),
+                                 paste(num, sampleid, conc, sep = "__"),
+                                 sampleid)) %>%
+        filter(!is.na(norm_peak)) %>%
+        filter(!str_detect(sampleid, "[Mm][Bb]"),
+               !str_detect(sampleid, "[Pp][Oo][Oo][Ll][Ee][Dd]"),
+               !str_detect(sampleid, "[Bb][Hh][Ii][Qq][Cc]"),
+               !str_detect(sampleid, "[Pp][Ll][Aa][Ss][Mm][Aa]"),
+               !str_detect(sampleid, "[Hh][Ee][Xx][Aa][Nn][Ee][Ss]"),
+               !str_detect(sampleid, "[Ss][Tt][Aa][Nn][Dd][Aa][Rr][Dd]"),
+               !str_detect(sampleid, "50%_[Mm][Ee][Oo][Hh]"),
+               !str_detect(sampleid, "[Ee][Aa]_[Bb][Ll][Aa][Nn][Kk]"),
+               !str_detect(sampleid, "50%[Mm][Ee][Oo][Hh]"),
+               !grepl("CC[0-9]+", sampleid)
+        ) %>%
+        dplyr::select(num,sampleid, compound_name, norm_peak) %>%
+        mutate(norm_peak = round(norm_peak,5)) %>%
+        group_by(sampleid, compound_name) %>%
+        summarise(norm_peak = mean(norm_peak)) %>%
+        # reshape2::dcast(num+sampleid ~ compound_name,value.var="norm_peak",fun.aggregate=mean) %>%
+        arrange(compound_name) %>%
+        pivot_wider(names_from = compound_name, values_from = norm_peak)
+      # select(-num)
+    }
+  })
+  
+  output$normwide_tms <- renderDataTable(
+    norm_wide_tbl_tms() %>%
+      datatable() %>%
+      formatRound(c(2:ncol(norm_wide_tbl_tms())), 3) %>%
+      formatStyle(columns = c(2:ncol(norm_wide_tbl_tms())), 'text-align' = 'center')
+  )
+  
+  
+  norm_wide_tbl_label_tms <- reactive({
+    if(input$qcfil_tms==F){
+      return("normalized_results_")
+    } else {
+      return("removed_qcs_normalized_results_")
+    }
+  })
+  
+  #download handler
+  output$downloadData_tms <- downloadHandler(
+    
+    filename = function(){
+      paste0(norm_wide_tbl_label_tms(),input$filename,"_",Sys.Date(),".csv")
+    },
+    
+    content = function(file) {
+      write.csv(norm_wide_tbl_tms(),file,
+                row.names=F,quote=F)
+    }
+  )
+  
+  ##### QC Report #####
+  # ITSD Raw Peak Area #
+  
+  # Build a Norm CV dataframe of summary stats
+  rawdf2_tms <- reactive({
+    compounds = unlist(strsplit(input$compounds_tms, split=","))
+    compounds = factor(compounds,level=unique(compounds))
+    
+    rawdf_tms() %>%
+      separate(sampleid,into=c("num","date","batch","sampleid","conc"),
+               sep="__") %>%
+      inner_join(., conc_int_tms_sep(), by = c("num","date","batch","sampleid","conc")) %>%
+      filter(itsd == "ITSD",
+             compound_name %in% compounds,
+             !str_detect(sampleid, "[Mm][Bb]"),
+             !str_detect(sampleid, "[Pp][Oo][Oo][Ll][Ee][Dd]"),
+             !str_detect(sampleid, "[Bb][Hh][Ii][Qq][Cc]"),
+             !str_detect(sampleid, "[Pp][Ll][Aa][Ss][Mm][Aa]"),
+             !str_detect(sampleid, "[Hh][Ee][Xx][Aa][Nn][Ee][Ss]"),
+             !str_detect(sampleid, "[Ss][Tt][Aa][Nn][Dd][Aa][Rr][Dd]"),
+             !str_detect(sampleid, "50%_[Mm][Ee][Oo][Hh]"),
+             !str_detect(sampleid, "[Ee][Aa]_[Bb][Ll][Aa][Nn][Kk]"),
+             !str_detect(sampleid, "50%[Mm][Ee][Oo][Hh]"),
+             !grepl("CC[0-9]+", sampleid)) %>%
+      mutate(peakarea = ifelse(peakarea <= input$zero_val_tms, input$zero_val_tms, peakarea)) %>%
+      group_by(batch, compound_name, conc) %>%
+      summarise(stdev = sd(peakarea),
+                average = mean(peakarea),
+                middle = median(peakarea),
+                cv = stdev / average,
+                cv_med = stdev / median(peakarea)# Don't turn into % here since it will be applied in the y-axis scale
+      )
+  })
+  
+  tms_norm_plot1 <-function()({
+    
+    compounds = unlist(strsplit(input$compounds_tms, split=","))
+    compounds = factor(compounds,level=unique(compounds))
+    
+    rawdf_tms() %>%
+      separate(sampleid,into=c("num","date","batch","sampleid","conc"),
+               sep="__") %>%
+      inner_join(., conc_int_tms_sep(), by = c("num","date","batch","sampleid","conc")) %>%
+      filter(itsd == "ITSD",
+             compound_name %in% compounds,
+             !str_detect(sampleid, "[Mm][Bb]"),
+             !str_detect(sampleid, "[Pp][Oo][Oo][Ll][Ee][Dd]"),
+             !str_detect(sampleid, "[Bb][Hh][Ii][Qq][Cc]"),
+             !str_detect(sampleid, "[Pp][Ll][Aa][Ss][Mm][Aa]"),
+             !str_detect(sampleid, "[Hh][Ee][Xx][Aa][Nn][Ee][Ss]"),
+             !str_detect(sampleid, "[Ss][Tt][Aa][Nn][Dd][Aa][Rr][Dd]"),
+             !str_detect(sampleid, "50%_[Mm][Ee][Oo][Hh]"),
+             !str_detect(sampleid, "[Ee][Aa]_[Bb][Ll][Aa][Nn][Kk]"),
+             !str_detect(sampleid, "50%[Mm][Ee][Oo][Hh]")) %>%
+      mutate(peakarea = ifelse(peakarea <= input$zero_val_tms, input$zero_val_tms, peakarea),
+             cc_shape = ifelse(grepl("[Cc][Cc][0-9]+", sampleid), "CC Sample", "ITSD")) %>%
+      filter(itsd == "ITSD") %>%
+      left_join(rawdf2_tms()) %>%
+      mutate(num = as.numeric(num),
+             flag = ifelse(peakarea > average + (1.5 * stdev) |
+                             peakarea < average - (1.5 * stdev), paste(num,batch,sampleid, sep = "_"), NA)) %>%
+      ggplot(., aes(x = num, y = peakarea, group = compound_name, label = flag)) +
+      geom_point(aes(color = compound_name, shape = cc_shape), fill = "black", alpha = 0.6, size = 2) +
+      geom_line(aes(y = average, color = compound_name)) +
+      geom_line(aes(y = average + 1.5*stdev, color = compound_name), linetype = "dashed") +
+      geom_line(aes(y = average - 1.5*stdev, color = compound_name), linetype = "dashed") +
+      geom_ribbon(aes(ymin = average - stdev, ymax = average + stdev,
+                      fill = compound_name), alpha=0.2) +
+      ggrepel::geom_label_repel(size = 1.2, max.overlaps = Inf,
+                                min.segment.length = 0.1, label.padding = 0.1) +
+      theme_bw() +
+      theme(panel.grid.minor= element_blank(),
+            panel.grid.major.x = element_blank(),
+            legend.text = element_text(color = "black", size = 13),
+            legend.title = element_text(color = "black", size = 15),
+            legend.position = "top",
+            strip.text=element_text(color = "black", size=9),
+            axis.text =element_text(color = "black", size=8),
+            axis.title = element_text(color = "black", size = 15),
+            plot.margin = margin(1,1,-1,1.1, unit = 'cm')) +
+      ggsci::scale_color_uchicago() +
+      ggsci::scale_fill_uchicago() +
+      guides(color = guide_legend(title = "Internal Standard Compound",
+                                  override.aes = list(size = 2.5), nrow = 1,
+                                  title.position="top", title.hjust = 0.5,
+                                  label.position = "right"), fill = F,
+             shape = guide_legend(title = "",
+                                  override.aes = list(size = 2.5), nrow = 2,
+                                  title.position="top", title.hjust = 0.5,
+                                  label.position = "right")) +
+      scale_shape_manual(values = c(24,16))+
+      scale_y_continuous(label = scales::scientific) +
+      scale_x_continuous(breaks = seq(0,150,25)) +
+      ylab("Raw Peak Area\n") +
+      xlab("\nInjection Number")+
+      facet_wrap(~compound_name+conc, scales="free_x", nrow = 2)
+  })
+  
+  
+  tms_norm_plot2 <-function()({
+    
+    compounds = unlist(strsplit(input$compounds_tms, split=","))
+    compounds = factor(compounds,level=unique(compounds))
+    
+    rawdf_tms() %>%
+      separate(sampleid,into=c("num","date","batch","sampleid","conc"),
+               sep="__") %>%
+      inner_join(., conc_int_tms_sep(), by = c("num","date","batch","sampleid","conc")) %>%
+      filter(itsd == "ITSD",
+             compound_name %in% compounds,
+             !str_detect(sampleid, "[Mm][Bb]"),
+             !str_detect(sampleid, "[Pp][Oo][Oo][Ll][Ee][Dd]"),
+             !str_detect(sampleid, "[Bb][Hh][Ii][Qq][Cc]"),
+             !str_detect(sampleid, "[Pp][Ll][Aa][Ss][Mm][Aa]"),
+             !str_detect(sampleid, "[Hh][Ee][Xx][Aa][Nn][Ee][Ss]"),
+             !str_detect(sampleid, "[Ss][Tt][Aa][Nn][Dd][Aa][Rr][Dd]"),
+             !str_detect(sampleid, "50%_[Mm][Ee][Oo][Hh]"),
+             !str_detect(sampleid, "[Ee][Aa]_[Bb][Ll][Aa][Nn][Kk]"),
+             !str_detect(sampleid, "50%[Mm][Ee][Oo][Hh]")) %>%
+      mutate(peakarea = ifelse(peakarea <= input$zero_val_tms, input$zero_val_tms, peakarea),
+             cc_shape = ifelse(grepl("[Cc][Cc][0-9]+", sampleid), "CC Sample", "ITSD")) %>%
+      filter(itsd == "ITSD") %>%
+      left_join(rawdf2_tms()) %>%
+      mutate(num = as.numeric(num),
+             flag = ifelse(peakarea > average + (1.5 * stdev) |
+                             peakarea < average - (1.5 * stdev), paste(num,batch,sampleid, sep = "_"), NA)) %>%
+      ggplot(., aes(x = num, y = peakarea, group = compound_name, label = flag)) +
+      geom_point(aes(color = compound_name, shape = cc_shape), fill = "black", alpha = 0.6, size = 2) +
+      geom_line(aes(y = average, color = compound_name)) +
+      geom_line(aes(y = average + 1.5*stdev, color = compound_name), linetype = "dashed") +
+      geom_line(aes(y = average - 1.5*stdev, color = compound_name), linetype = "dashed") +
+      geom_ribbon(aes(ymin = ifelse(average - stdev <= 1, 1, average - stdev),
+                      ymax = average + stdev,
+                      fill = compound_name), alpha=0.2) +
+      ggrepel::geom_label_repel(size = 1.2, max.overlaps = Inf,
+                                min.segment.length = 0.1, label.padding = 0.1) +
+      theme_bw() +
+      theme(panel.grid.minor= element_blank(),
+            panel.grid.major.x = element_blank(),
+            legend.text = element_text(color = "black", size = 13),
+            legend.title = element_text(color = "black", size = 15),
+            legend.position = "top",
+            strip.text=element_text(color = "black", size=9),
+            axis.text =element_text(color = "black", size=8),
+            axis.title = element_text(color = "black", size = 15),
+            plot.margin = margin(1,1,0.1,1.35, unit = 'cm')) +
+      ggsci::scale_color_uchicago() +
+      ggsci::scale_fill_uchicago() +
+      guides(color = guide_legend(title = "Internal Standard Compound",
+                                  override.aes = list(size = 2.5), nrow = 1,
+                                  title.position="top", title.hjust = 0.5,
+                                  label.position = "right"), fill = F,
+             shape = guide_legend(title = "",
+                                  override.aes = list(size = 2.5), nrow = 2,
+                                  title.position="top", title.hjust = 0.5,
+                                  label.position = "right")) +
+      scale_shape_manual(values = c(24,16))+
+      ylab("Raw Peak Area\n(log10 scale)") +
+      xlab("\nInjection Number") +
+      # coord_trans(y = "log10") +
+      scale_y_continuous(trans = "log10", labels = scales::scientific)+
+      scale_x_continuous(breaks = seq(0,150,25))+
+      facet_wrap(~compound_name+conc, scales="free_x", nrow = 2)
+  })
+  
+  # ITSD CV Percent #
+  
+  # Build CV dataframe
+  rawdf2_1_tms <- reactive({
+    
+    compounds = unlist(strsplit(input$compounds_tms, split=","))
+    compounds = factor(compounds,level=unique(compounds))
+    
+    rawdf_tms() %>%
+      separate(sampleid,into=c("num","date","batch","sampleid","conc"),
+               sep="__") %>%
+      inner_join(., conc_int_tms_sep(), by = c("num","date","batch","sampleid","conc")) %>%
+      filter(itsd == "ITSD",
+             compound_name %in% compounds,
+             !str_detect(sampleid, "[Mm][Bb]"),
+             !str_detect(sampleid, "[Pp][Oo][Oo][Ll][Ee][Dd]"),
+             !str_detect(sampleid, "[Bb][Hh][Ii][Qq][Cc]"),
+             !str_detect(sampleid, "[Pp][Ll][Aa][Ss][Mm][Aa]"),
+             !str_detect(sampleid, "[Hh][Ee][Xx][Aa][Nn][Ee][Ss]"),
+             !str_detect(sampleid, "[Ss][Tt][Aa][Nn][Dd][Aa][Rr][Dd]"),
+             !str_detect(sampleid, "50%_[Mm][Ee][Oo][Hh]"),
+             !str_detect(sampleid, "[Ee][Aa]_[Bb][Ll][Aa][Nn][Kk]"),
+             !str_detect(sampleid, "50%[Mm][Ee][Oo][Hh]"),
+             !grepl("[Cc][Cc][0-9]+", sampleid)) %>%
+      mutate(peakarea = ifelse(peakarea <= input$zero_val_tms, input$zero_val_tms, peakarea)) %>%
+      group_by(batch, compound_name, conc) %>%
+      summarise(stdev = sd(peakarea),
+                average = mean(peakarea),
+                middle = median(peakarea),
+                cv = stdev / average,
+                cv_med = stdev / median(peakarea)# Don't turn into % here since it will be applied in the y-axis scale
+      ) %>%
+      dplyr::rename(Batch = batch,
+                    `Internal Standard` = compound_name,
+                    StDev = stdev,
+                    Mean = average,
+                    Median = middle,
+                    CV = cv,
+                    `CV Median` = cv_med,
+                    Concentration = conc) %>%
+      mutate(StDev = round(StDev, digits = 0),
+             Mean = round(Mean, digits = 0),
+             Median = round(Median, digits = 0),
+             `CV (%)` = round(CV * 100, digits = 1),
+             `CV Median (%)` = round(`CV Median` * 100, digits = 1)) %>%
+      select(Batch,Concentration,`Internal Standard`,StDev,Mean,Median,`CV (%)`,`CV Median (%)`)
+  })
+  
+  
+  
+  # Build summary table
+  tms_norm_table_list1 <- function()({
+    gridExtra::tableGrob(rawdf2_1_tms(), rows = NULL, theme = tt)
+  })
+  
+  ## Save Report ##
+  output$norm_qc_report_download_tms <- downloadHandler(
+    filename = function(){
+      paste0("TMS_QC_Norm_Report_",unique(rawdf2_tms()$batch),"_",Sys.Date(),".pdf")
+    },
+    content = function(file) {
+      pdf(file, height = 11, width = 8.5)
+      print(
+        gridExtra::grid.arrange(
+          tms_norm_plot1() +
+            xlab("") +
+            ggtitle(paste("TMS Qualitative QC Report\n", unique(rawdf2_tms()$batch))) +
+            theme(plot.title = element_text(color = "black",
+                                            hjust = 0.5,
+                                            size = 20,
+                                            face = "bold")),
+          tms_norm_plot2() + theme(legend.position = "none"),
+          nrow = 2)
+      )
+      print(
+        gridExtra::grid.arrange(
+          tms_norm_table_list1())
+      )
+      dev.off()
+    }
+  )
+  
 # Instrument QC tab -----------------------------------------------------------------
   #### Calibration Curve-Slope Plot ####
   slope_qc_plot <- function()({
@@ -5955,603 +6567,7 @@ return(p())
   )
   
   
-  # TMS normalization tab -------------------------------------------------------
 
-  rawdf_tms <- reactive({
-    readin_meta_csv_single_file_tms(file.path(wddir,input$filename),na.value = input$zero_val_tms)
-  })
-
-  # This generates a list of all compounds except for the internal standards
-  csv_tms <- reactive({
-
-    vars_tms <- rawdf_tms() %>%
-      mutate(compound_name=as.character(compound_name)) %>%
-      arrange(desc(compound_name)) %>%
-      filter(is.na(itsd)) %>% # This filters FOR samples that are NOT internal standards
-      distinct(compound_name) %>%
-      `$`(compound_name) 
-
-    return(vars_tms)
-  })
-  
-  # This generates the average and median peak areas for all internal standards in a sample
-  conc_int_tms <- reactive({
-    
-    compounds_tms = unlist(strsplit(input$compounds_tms, split=","))
-    compounds_tms = factor(compounds_tms,level=unique(compounds_tms))
-    
-    rawdf_tms() %>%
-      filter(itsd=="ITSD",
-             compound_name %in% compounds_tms) %>%
-      group_by(sampleid) %>%
-      summarize(avg=mean(peakarea),
-                med=median(peakarea))
-    
-  })
-
-  
-  conc_int_tms_sep <- reactive({
-    conc_int_tms() %>%
-      separate(sampleid,into=c("num","date","batch","sampleid","conc"),
-               sep="__")
-  })
-
-
-  # This generates the minimum peak areas for all internal standards in a sample
-  # conc_int_heatmap_tms <- reactive({
-  #   
-  #   compounds_tms = unlist(strsplit(input$compounds_tms, split=","))
-  #   compounds_tms = factor(compounds_tms,level=unique(compounds_tms))
-  #   
-  #   rawdf_tms() %>%
-  #     filter(itsd=="ITSD",
-  #            compound_name %in% compounds_tms) %>%
-  #     group_by(compound_name) %>%
-  #     summarize(min_peak = ifelse(all(peakarea == 0), 0, min(peakarea[peakarea != 0])))
-  # })
-  
-
-  
-  output$compound_list_tms <- renderUI({
-    checkboxGroupInput("check_compounds_tms","Check = split1to5",
-                       choices=csv_tms(),
-                       inline=F)
-  })
-  
-  #make boxplots:
-  raw_boxplots_tms <- reactive({
-
-    rawdf_tms() %>%
-      filter(is.na(itsd)) %>%
-      replace_na(list(itsd="not itsd")) %>%
-      ggplot(aes(y=compound_name,x=peakarea)) +
-      geom_boxplot(outlier.shape = NA) +
-      geom_jitter(width=0.1,height=0.1,alpha=0.3) +
-      theme_bw() +
-      theme(strip.text.x=element_text(size=15),
-            axis.text.y=element_text(size=13)) +
-      ylab("") +
-      xlab("peak area") +
-      facet_grid(itsd ~ conc,scales="free_y",space="free") +
-      scale_x_continuous(trans=log_epsilon_trans(epsilon=1000))
-
-  })
-  
-  output$raw_boxplots_tms <- renderPlot(
-    raw_boxplots_tms()
-  )
-
-  #subset based on checkboxes.. make a dataframe of compounds in same order as checkboxes with input as a column
-  conc_filter_tms <- reactive({
-    
-    if(length(as.list(input$check_compounds_tms)) > 0){
-      
-      leftovervars <- csv_tms()[ !(csv_tms() %in% input$check_compounds_tms) ]
-      
-      tibble(checked = rep("split1to5", length(input$check_compounds_tms)),
-             compound_name = input$check_compounds_tms) %>%
-        bind_rows(tibble(checked = rep("nosplit", length(leftovervars)),
-                         compound_name = leftovervars)
-        )
-    }else{
-      
-      tibble(checked = "nosplit",
-             compound_name = csv_tms())
-    }
-  })
-  
-  subset_conc_tms <- reactive({
-    
-    rawdf_tms() %>%
-      left_join(conc_filter_tms()) %>%
-      replace_na(list(checked="nosplit")) %>%
-      filter(conc==checked) %>%
-      select(-checked) %>%
-      left_join(conc_int_tms()) %>%
-      mutate(norm_peak=peakarea / avg)
-  })
-  
-  output$conc_filter_tms <- renderDataTable(
-    subset_conc_tms() %>%
-      datatable() %>%
-      formatRound(c("norm_peak"), 3) %>%
-      formatStyle(columns = c("norm_peak"), 'text-align' = 'center')
-  )
-  
-  
-  #make heatmap:
-  heatmap_plot_tms <- reactive({
-    rawdf_tms() %>%
-      left_join(conc_filter_tms()) %>%
-      replace_na(list(checked="nosplit"))%>%
-      filter(conc==checked, is.na(itsd),
-             !grepl("(__CC[0-9]+__)", sampleid)) %>%
-      select(-checked) %>%
-      left_join(conc_int_tms()) %>%
-      # left_join(conc_int_heatmap_tms()) %>%
-      mutate(norm_peak = peakarea / avg) %>%
-      group_by(compound_name) %>% 
-      mutate(compound_med = median(norm_peak)) %>%
-      ungroup() %>%
-      mutate(heat_val = log((norm_peak / compound_med), base = 2)) %>%
-      dplyr::select(sampleid, compound_name, heat_val) %>%
-      spread(compound_name, heat_val, fill = NA) %>%
-      reshape2::melt(id.vars=c("sampleid")) %>%
-      dplyr::rename(compound_name=variable,heat_val=value) %>%
-      separate(sampleid,into=c("num","date","batch","sampleid","conc"),
-               sep="\\_\\_") %>%
-      filter(!is.na(heat_val)) %>%
-      mutate(sampleid = ifelse(str_detect(sampleid, "[Mm][Bb]|[Pp][Oo][Oo][Ll][Ee][Dd]|[Bb][Hh][Ii][Qq][Cc]|[Pp][Ll][Aa][Ss][Mm][Aa]|[Hh][Ee][Xx][Aa][Nn][Ee][Ss]|[Ss][Tt][Aa][Nn][Dd][Aa][Rr][Dd]|50%_[Mm][Ee][Oo][Hh]|[Ee][Aa]_[Bb][Ll][Aa][Nn][Kk]|50%[Mm][Ee][Oo][hh]"),
-                               paste(num, sampleid, conc, sep = "__"),
-                               sampleid)) %>%
-      filter(!str_detect(sampleid, "[Mm][Bb]"),
-             !str_detect(sampleid, "[Pp][Oo][Oo][Ll][Ee][Dd]"),
-             !str_detect(sampleid, "[Bb][Hh][Ii][Qq][Cc]"),
-             !str_detect(sampleid, "[Pp][Ll][Aa][Ss][Mm][Aa]"),
-             !str_detect(sampleid, "[Hh][Ee][Xx][Aa][Nn][Ee][Ss]"),
-             !str_detect(sampleid, "[Ss][Tt][Aa][Nn][Dd][Aa][Rr][Dd]"),
-             !str_detect(sampleid, "50%_[Mm][Ee][Oo][Hh]"),
-             !str_detect(sampleid, "[Ee][Aa]_[Bb][Ll][Aa][Nn][Kk]"),
-             !str_detect(sampleid, "50%[Mm][Ee][Oo][Hh]"),
-             !grepl("CC[0-9]+", sampleid)) %>%
-      dplyr::select(sampleid, compound_name, heat_val) %>%
-      mutate(heat_val = round(heat_val,5)) %>%
-      group_by(sampleid, compound_name) %>%
-      summarise(heat_val = mean(heat_val)) %>%
-      pivot_wider(names_from = compound_name, values_from = heat_val) %>%
-      # filter_all(all_vars(!is.infinite(.))) %>%
-      drop_na(.) %>%
-      column_to_rownames(., var = "sampleid") %>%
-      as.matrix(.) %>%
-      t(.) %>%
-      pheatmap(., scale = "none",
-               cellheight = nrow(heatmap_data_tms()) / (nrow(heatmap_data_tms())*0.075),
-               cellwidth = ncol(heatmap_data_tms()) / (ncol(heatmap_data_tms())*0.0825)+1.5,
-               angle_col = "90",
-               color=colorRampPalette(c("navy", "white", "red"))(50),
-      )
-  })
-
-  # output$TMSTEST1 <- renderDataTable(
-  #   heatmap_plot_tms()
-  # )
-  
-  output$heatmap_plot_tms <- renderPlot(
-    heatmap_plot_tms()
-  )
-
-  heatmap_data_tms <- reactive({
-    rawdf_tms() %>%
-      left_join(conc_filter_tms()) %>%
-      replace_na(list(checked="nosplit"))%>%
-      filter(conc==checked, is.na(itsd),
-             !grepl("(__CC[0-9]+__)", sampleid)) %>%
-      select(-checked) %>%
-      left_join(conc_int_tms()) %>%
-      # left_join(conc_int_heatmap_tms()) %>%
-      mutate(norm_peak = peakarea / avg) %>%
-      group_by(compound_name) %>% 
-      mutate(compound_med = median(norm_peak)) %>%
-      ungroup() %>%
-      mutate(heat_val = log((norm_peak / compound_med), base = 2)) %>%
-      dplyr::select(sampleid, compound_name, heat_val) %>%
-      spread(compound_name, heat_val, fill = NA) %>%
-      reshape2::melt(id.vars=c("sampleid")) %>%
-      dplyr::rename(compound_name=variable,heat_val=value) %>%
-      separate(sampleid,into=c("num","date","batch","sampleid","conc"),
-               sep="\\_\\_") %>%
-      filter(!is.na(heat_val)) %>%
-      mutate(sampleid = ifelse(str_detect(sampleid, "[Mm][Bb]|[Pp][Oo][Oo][Ll][Ee][Dd]|[Bb][Hh][Ii][Qq][Cc]|[Pp][Ll][Aa][Ss][Mm][Aa]|[Hh][Ee][Xx][Aa][Nn][Ee][Ss]|[Ss][Tt][Aa][Nn][Dd][Aa][Rr][Dd]|50%_[Mm][Ee][Oo][Hh]|[Ee][Aa]_[Bb][Ll][Aa][Nn][Kk]|50%[Mm][Ee][Oo][hh]"),
-                               paste(num, sampleid, conc, sep = "__"),
-                               sampleid)) %>%
-      filter(!str_detect(sampleid, "[Mm][Bb]"),
-             !str_detect(sampleid, "[Pp][Oo][Oo][Ll][Ee][Dd]"),
-             !str_detect(sampleid, "[Bb][Hh][Ii][Qq][Cc]"),
-             !str_detect(sampleid, "[Pp][Ll][Aa][Ss][Mm][Aa]"),
-             !str_detect(sampleid, "[Hh][Ee][Xx][Aa][Nn][Ee][Ss]"),
-             !str_detect(sampleid, "[Ss][Tt][Aa][Nn][Dd][Aa][Rr][Dd]"),
-             !str_detect(sampleid, "50%_[Mm][Ee][Oo][Hh]"),
-             !str_detect(sampleid, "[Ee][Aa]_[Bb][Ll][Aa][Nn][Kk]"),
-             !str_detect(sampleid, "50%[Mm][Ee][Oo][Hh]"),
-             !grepl("CC[0-9]+", sampleid)) %>%
-      dplyr::select(sampleid, compound_name, heat_val) %>%
-      mutate(heat_val = round(heat_val,5)) %>%
-      group_by(sampleid, compound_name) %>%
-      summarise(heat_val = mean(heat_val)) %>%
-      pivot_wider(names_from = compound_name, values_from = heat_val) %>%
-      # filter_all(all_vars(!is.infinite(.))) %>%
-      drop_na(.) %>%
-      column_to_rownames(., var = "sampleid") %>%
-      as.matrix(.) %>%
-      t(.)
-  })
-  
-  # output$TEST4 <- renderDataTable(
-  #   heatmap_data_tms()
-  # )
-
-  output$heatmap_download_tms <- downloadHandler(
-    filename = function(){
-      paste0("normalized_heatmap_",input$filename,"_",Sys.Date(),".pdf")
-    },
-    content = function(file) {
-      pdf(file,
-          height = nrow(heatmap_data_tms()) / (nrow(heatmap_data_tms())*0.035),
-          width = (ncol(heatmap_data_tms()) / (ncol(heatmap_data_tms())*0.07))+1.5
-      )
-      heatmap_plot_tms()
-      dev.off()
-    },
-    contentType = 'PDF'
-  )
-
-  #download table
-  #make wide table
-  norm_wide_tbl_tms <- reactive({
-
-    if(input$qcfil_tms==F){
-      rawdf_tms() %>%
-        left_join(conc_filter_tms()) %>%
-        replace_na(list(checked="nosplit")) %>%
-        filter(conc==checked, is.na(itsd),
-               !grepl("(__CC[0-9]+__)", sampleid)) %>%
-        select(-checked) %>%
-        left_join(conc_int_tms()) %>%
-        mutate(norm_peak = peakarea / avg) %>%
-        dplyr::select(sampleid, compound_name, norm_peak) %>%
-        spread(compound_name, norm_peak, fill = NA) %>%
-        reshape2::melt(id.vars=c("sampleid")) %>%
-        dplyr::rename(compound_name=variable,norm_peak=value) %>%
-        separate(sampleid,into=c("num","date","batch","sampleid","conc"),
-                 sep="__") %>%
-        filter(!is.na(norm_peak)) %>%
-        mutate(sampleid = ifelse(str_detect(sampleid, "[Mm][Bb]|[Pp][Oo][Oo][Ll][Ee][Dd]|[Bb][Hh][Ii][Qq][Cc]|[Pp][Ll][Aa][Ss][Mm][Aa]|[Hh][Ee][Xx][Aa][Nn][Ee][Ss]|[Ss][Tt][Aa][Nn][Dd][Aa][Rr][Dd]|50%_[Mm][Ee][Oo][Hh]|[Ee][Aa]_[Bb][Ll][Aa][Nn][Kk]|50%[Mm][Ee][Oo][hh]"),
-                                 paste(num, sampleid, conc, sep = "__"),
-                                 sampleid)) %>%
-        dplyr::select(sampleid, compound_name, norm_peak) %>%
-        mutate(norm_peak = round(norm_peak,5)) %>%
-        group_by(sampleid, compound_name) %>%
-        summarise(norm_peak = mean(norm_peak)) %>%
-        #     # reshape2::dcast(sampleid ~ compound_name, value.var = "norm_peak") %>%
-        arrange(compound_name) %>%
-        pivot_wider(names_from = compound_name, values_from = norm_peak)
-      # select(-num)
-    }else{
-      rawdf_tms() %>%
-        left_join(conc_filter_tms()) %>%
-        replace_na(list(checked="nosplit")) %>%
-        filter(conc==checked, is.na(itsd)) %>%
-        select(-checked) %>%
-        left_join(conc_int_tms()) %>%
-        mutate(norm_peak=peakarea / avg) %>%
-        dplyr::select(sampleid, compound_name, norm_peak) %>%
-        spread(compound_name, norm_peak, fill = NA) %>%
-        reshape2::melt(id.vars=c("sampleid")) %>%
-        dplyr::rename(compound_name=variable,norm_peak=value) %>%
-        separate(sampleid,into=c("num","date","batch","sampleid","conc"),
-                 sep="__") %>%
-        mutate(sampleid = ifelse(str_detect(sampleid, "[Mm][Bb]|[Pp][Oo][Oo][Ll][Ee][Dd]|[Bb][Hh][Ii][Qq][Cc]|[Pp][Ll][Aa][Ss][Mm][Aa]|[Hh][Ee][Xx][Aa][Nn][Ee][Ss]|[Ss][Tt][Aa][Nn][Dd][Aa][Rr][Dd]|50%_[Mm][Ee][Oo][Hh]|[Ee][Aa]_[Bb][Ll][Aa][Nn][Kk]|50%[Mm][Ee][Oo][hh]"),
-                                 paste(num, sampleid, conc, sep = "__"),
-                                 sampleid)) %>%
-        filter(!is.na(norm_peak)) %>%
-        filter(!str_detect(sampleid, "[Mm][Bb]"),
-               !str_detect(sampleid, "[Pp][Oo][Oo][Ll][Ee][Dd]"),
-               !str_detect(sampleid, "[Bb][Hh][Ii][Qq][Cc]"),
-               !str_detect(sampleid, "[Pp][Ll][Aa][Ss][Mm][Aa]"),
-               !str_detect(sampleid, "[Hh][Ee][Xx][Aa][Nn][Ee][Ss]"),
-               !str_detect(sampleid, "[Ss][Tt][Aa][Nn][Dd][Aa][Rr][Dd]"),
-               !str_detect(sampleid, "50%_[Mm][Ee][Oo][Hh]"),
-               !str_detect(sampleid, "[Ee][Aa]_[Bb][Ll][Aa][Nn][Kk]"),
-               !str_detect(sampleid, "50%[Mm][Ee][Oo][Hh]"),
-               !grepl("CC[0-9]+", sampleid)
-        ) %>%
-        dplyr::select(num,sampleid, compound_name, norm_peak) %>%
-        mutate(norm_peak = round(norm_peak,5)) %>%
-        group_by(sampleid, compound_name) %>%
-        summarise(norm_peak = mean(norm_peak)) %>%
-        # reshape2::dcast(num+sampleid ~ compound_name,value.var="norm_peak",fun.aggregate=mean) %>%
-        arrange(compound_name) %>%
-        pivot_wider(names_from = compound_name, values_from = norm_peak)
-      # select(-num)
-    }
-  })
-
-  output$normwide_tms <- renderDataTable(
-    norm_wide_tbl_tms() %>%
-      datatable() %>%
-      formatRound(c(2:ncol(norm_wide_tbl_tms())), 3) %>%
-      formatStyle(columns = c(2:ncol(norm_wide_tbl_tms())), 'text-align' = 'center')
-  )
-
-
-  norm_wide_tbl_label_tms <- reactive({
-    if(input$qcfil_tms==F){
-      return("normalized_results_")
-    } else {
-      return("removed_qcs_normalized_results_")
-    }
-  })
-
-  #download handler
-  output$downloadData_tms <- downloadHandler(
-
-    filename = function(){
-      paste0(norm_wide_tbl_label_tms(),input$filename,"_",Sys.Date(),".csv")
-    },
-
-    content = function(file) {
-      write.csv(norm_wide_tbl_tms(),file,
-                row.names=F,quote=F)
-    }
-  )
-  
-  ##### QC Report #####
-  # ITSD Raw Peak Area #
-  
-  # Build a Norm CV dataframe of summary stats
-  rawdf2_tms <- reactive({
-    compounds = unlist(strsplit(input$compounds_tms, split=","))
-    compounds = factor(compounds,level=unique(compounds))
-    
-    rawdf_tms() %>%
-      separate(sampleid,into=c("num","date","batch","sampleid","conc"),
-               sep="__") %>%
-      inner_join(., conc_int_tms_sep(), by = c("num","date","batch","sampleid","conc")) %>%
-      filter(itsd == "ITSD",
-             compound_name %in% compounds,
-             !str_detect(sampleid, "[Mm][Bb]"),
-             !str_detect(sampleid, "[Pp][Oo][Oo][Ll][Ee][Dd]"),
-             !str_detect(sampleid, "[Bb][Hh][Ii][Qq][Cc]"),
-             !str_detect(sampleid, "[Pp][Ll][Aa][Ss][Mm][Aa]"),
-             !str_detect(sampleid, "[Hh][Ee][Xx][Aa][Nn][Ee][Ss]"),
-             !str_detect(sampleid, "[Ss][Tt][Aa][Nn][Dd][Aa][Rr][Dd]"),
-             !str_detect(sampleid, "50%_[Mm][Ee][Oo][Hh]"),
-             !str_detect(sampleid, "[Ee][Aa]_[Bb][Ll][Aa][Nn][Kk]"),
-             !str_detect(sampleid, "50%[Mm][Ee][Oo][Hh]"),
-             !grepl("CC[0-9]+", sampleid)) %>%
-      mutate(peakarea = ifelse(peakarea <= input$zero_val_tms, input$zero_val_tms, peakarea)) %>%
-      group_by(batch, compound_name, conc) %>%
-      summarise(stdev = sd(peakarea),
-                average = mean(peakarea),
-                middle = median(peakarea),
-                cv = stdev / average,
-                cv_med = stdev / median(peakarea)# Don't turn into % here since it will be applied in the y-axis scale
-      )
-  })
-  
-  tms_norm_plot1 <-function()({
-    
-    compounds = unlist(strsplit(input$compounds_tms, split=","))
-    compounds = factor(compounds,level=unique(compounds))
-    
-    rawdf_tms() %>%
-      separate(sampleid,into=c("num","date","batch","sampleid","conc"),
-               sep="__") %>%
-      inner_join(., conc_int_tms_sep(), by = c("num","date","batch","sampleid","conc")) %>%
-      filter(itsd == "ITSD",
-             compound_name %in% compounds,
-             !str_detect(sampleid, "[Mm][Bb]"),
-             !str_detect(sampleid, "[Pp][Oo][Oo][Ll][Ee][Dd]"),
-             !str_detect(sampleid, "[Bb][Hh][Ii][Qq][Cc]"),
-             !str_detect(sampleid, "[Pp][Ll][Aa][Ss][Mm][Aa]"),
-             !str_detect(sampleid, "[Hh][Ee][Xx][Aa][Nn][Ee][Ss]"),
-             !str_detect(sampleid, "[Ss][Tt][Aa][Nn][Dd][Aa][Rr][Dd]"),
-             !str_detect(sampleid, "50%_[Mm][Ee][Oo][Hh]"),
-             !str_detect(sampleid, "[Ee][Aa]_[Bb][Ll][Aa][Nn][Kk]"),
-             !str_detect(sampleid, "50%[Mm][Ee][Oo][Hh]")) %>%
-      mutate(peakarea = ifelse(peakarea <= input$zero_val_tms, input$zero_val_tms, peakarea),
-             cc_shape = ifelse(grepl("[Cc][Cc][0-9]+", sampleid), "CC Sample", "ITSD")) %>%
-      filter(itsd == "ITSD") %>%
-      left_join(rawdf2_tms()) %>%
-      mutate(num = as.numeric(num),
-             flag = ifelse(peakarea > average + (1.5 * stdev) |
-                             peakarea < average - (1.5 * stdev), paste(num,batch,sampleid, sep = "_"), NA)) %>%
-      ggplot(., aes(x = num, y = peakarea, group = compound_name, label = flag)) +
-      geom_point(aes(color = compound_name, shape = cc_shape), fill = "black", alpha = 0.6, size = 2) +
-      geom_line(aes(y = average, color = compound_name)) +
-      geom_line(aes(y = average + 1.5*stdev, color = compound_name), linetype = "dashed") +
-      geom_line(aes(y = average - 1.5*stdev, color = compound_name), linetype = "dashed") +
-      geom_ribbon(aes(ymin = average - stdev, ymax = average + stdev,
-                      fill = compound_name), alpha=0.2) +
-      ggrepel::geom_label_repel(size = 1.2, max.overlaps = Inf,
-                                min.segment.length = 0.1, label.padding = 0.1) +
-      theme_bw() +
-      theme(panel.grid.minor= element_blank(),
-            panel.grid.major.x = element_blank(),
-            legend.text = element_text(color = "black", size = 13),
-            legend.title = element_text(color = "black", size = 15),
-            legend.position = "top",
-            strip.text=element_text(color = "black", size=9),
-            axis.text =element_text(color = "black", size=8),
-            axis.title = element_text(color = "black", size = 15),
-            plot.margin = margin(1,1,-1,1.1, unit = 'cm')) +
-      ggsci::scale_color_uchicago() +
-      ggsci::scale_fill_uchicago() +
-      guides(color = guide_legend(title = "Internal Standard Compound",
-                                  override.aes = list(size = 2.5), nrow = 1,
-                                  title.position="top", title.hjust = 0.5,
-                                  label.position = "right"), fill = F,
-             shape = guide_legend(title = "",
-                                  override.aes = list(size = 2.5), nrow = 2,
-                                  title.position="top", title.hjust = 0.5,
-                                  label.position = "right")) +
-      scale_shape_manual(values = c(24,16))+
-      scale_y_continuous(label = scales::scientific) +
-      scale_x_continuous(breaks = seq(0,150,25)) +
-      ylab("Raw Peak Area\n") +
-      xlab("\nInjection Number")+
-      facet_wrap(~compound_name+conc, scales="free_x", nrow = 2)
-  })
-  
-  
-  tms_norm_plot2 <-function()({
-    
-    compounds = unlist(strsplit(input$compounds_tms, split=","))
-    compounds = factor(compounds,level=unique(compounds))
-    
-    rawdf_tms() %>%
-      separate(sampleid,into=c("num","date","batch","sampleid","conc"),
-               sep="__") %>%
-      inner_join(., conc_int_tms_sep(), by = c("num","date","batch","sampleid","conc")) %>%
-      filter(itsd == "ITSD",
-             compound_name %in% compounds,
-             !str_detect(sampleid, "[Mm][Bb]"),
-             !str_detect(sampleid, "[Pp][Oo][Oo][Ll][Ee][Dd]"),
-             !str_detect(sampleid, "[Bb][Hh][Ii][Qq][Cc]"),
-             !str_detect(sampleid, "[Pp][Ll][Aa][Ss][Mm][Aa]"),
-             !str_detect(sampleid, "[Hh][Ee][Xx][Aa][Nn][Ee][Ss]"),
-             !str_detect(sampleid, "[Ss][Tt][Aa][Nn][Dd][Aa][Rr][Dd]"),
-             !str_detect(sampleid, "50%_[Mm][Ee][Oo][Hh]"),
-             !str_detect(sampleid, "[Ee][Aa]_[Bb][Ll][Aa][Nn][Kk]"),
-             !str_detect(sampleid, "50%[Mm][Ee][Oo][Hh]")) %>%
-      mutate(peakarea = ifelse(peakarea <= input$zero_val_tms, input$zero_val_tms, peakarea),
-             cc_shape = ifelse(grepl("[Cc][Cc][0-9]+", sampleid), "CC Sample", "ITSD")) %>%
-      filter(itsd == "ITSD") %>%
-      left_join(rawdf2_tms()) %>%
-      mutate(num = as.numeric(num),
-             flag = ifelse(peakarea > average + (1.5 * stdev) |
-                             peakarea < average - (1.5 * stdev), paste(num,batch,sampleid, sep = "_"), NA)) %>%
-      ggplot(., aes(x = num, y = peakarea, group = compound_name, label = flag)) +
-      geom_point(aes(color = compound_name, shape = cc_shape), fill = "black", alpha = 0.6, size = 2) +
-      geom_line(aes(y = average, color = compound_name)) +
-      geom_line(aes(y = average + 1.5*stdev, color = compound_name), linetype = "dashed") +
-      geom_line(aes(y = average - 1.5*stdev, color = compound_name), linetype = "dashed") +
-      geom_ribbon(aes(ymin = ifelse(average - stdev <= 1, 1, average - stdev),
-                      ymax = average + stdev,
-                      fill = compound_name), alpha=0.2) +
-      ggrepel::geom_label_repel(size = 1.2, max.overlaps = Inf,
-                                min.segment.length = 0.1, label.padding = 0.1) +
-      theme_bw() +
-      theme(panel.grid.minor= element_blank(),
-            panel.grid.major.x = element_blank(),
-            legend.text = element_text(color = "black", size = 13),
-            legend.title = element_text(color = "black", size = 15),
-            legend.position = "top",
-            strip.text=element_text(color = "black", size=9),
-            axis.text =element_text(color = "black", size=8),
-            axis.title = element_text(color = "black", size = 15),
-            plot.margin = margin(1,1,0.1,1.35, unit = 'cm')) +
-      ggsci::scale_color_uchicago() +
-      ggsci::scale_fill_uchicago() +
-      guides(color = guide_legend(title = "Internal Standard Compound",
-                                  override.aes = list(size = 2.5), nrow = 1,
-                                  title.position="top", title.hjust = 0.5,
-                                  label.position = "right"), fill = F,
-             shape = guide_legend(title = "",
-                                  override.aes = list(size = 2.5), nrow = 2,
-                                  title.position="top", title.hjust = 0.5,
-                                  label.position = "right")) +
-      scale_shape_manual(values = c(24,16))+
-      ylab("Raw Peak Area\n(log10 scale)") +
-      xlab("\nInjection Number") +
-      # coord_trans(y = "log10") +
-      scale_y_continuous(trans = "log10", labels = scales::scientific)+
-      scale_x_continuous(breaks = seq(0,150,25))+
-      facet_wrap(~compound_name+conc, scales="free_x", nrow = 2)
-  })
-  
-  # ITSD CV Percent #
-  
-  # Build CV dataframe
-  rawdf2_1_tms <- reactive({
-    
-    compounds = unlist(strsplit(input$compounds_tms, split=","))
-    compounds = factor(compounds,level=unique(compounds))
-    
-    rawdf_tms() %>%
-      separate(sampleid,into=c("num","date","batch","sampleid","conc"),
-               sep="__") %>%
-      inner_join(., conc_int_tms_sep(), by = c("num","date","batch","sampleid","conc")) %>%
-      filter(itsd == "ITSD",
-             compound_name %in% compounds,
-             !str_detect(sampleid, "[Mm][Bb]"),
-             !str_detect(sampleid, "[Pp][Oo][Oo][Ll][Ee][Dd]"),
-             !str_detect(sampleid, "[Bb][Hh][Ii][Qq][Cc]"),
-             !str_detect(sampleid, "[Pp][Ll][Aa][Ss][Mm][Aa]"),
-             !str_detect(sampleid, "[Hh][Ee][Xx][Aa][Nn][Ee][Ss]"),
-             !str_detect(sampleid, "[Ss][Tt][Aa][Nn][Dd][Aa][Rr][Dd]"),
-             !str_detect(sampleid, "50%_[Mm][Ee][Oo][Hh]"),
-             !str_detect(sampleid, "[Ee][Aa]_[Bb][Ll][Aa][Nn][Kk]"),
-             !str_detect(sampleid, "50%[Mm][Ee][Oo][Hh]"),
-             !grepl("[Cc][Cc][0-9]+", sampleid)) %>%
-      mutate(peakarea = ifelse(peakarea <= input$zero_val_tms, input$zero_val_tms, peakarea)) %>%
-      group_by(batch, compound_name, conc) %>%
-      summarise(stdev = sd(peakarea),
-                average = mean(peakarea),
-                middle = median(peakarea),
-                cv = stdev / average,
-                cv_med = stdev / median(peakarea)# Don't turn into % here since it will be applied in the y-axis scale
-      ) %>%
-      dplyr::rename(Batch = batch,
-                    `Internal Standard` = compound_name,
-                    StDev = stdev,
-                    Mean = average,
-                    Median = middle,
-                    CV = cv,
-                    `CV Median` = cv_med,
-                    Concentration = conc) %>%
-      mutate(StDev = round(StDev, digits = 0),
-             Mean = round(Mean, digits = 0),
-             Median = round(Median, digits = 0),
-             `CV (%)` = round(CV * 100, digits = 1),
-             `CV Median (%)` = round(`CV Median` * 100, digits = 1)) %>%
-      select(Batch,Concentration,`Internal Standard`,StDev,Mean,Median,`CV (%)`,`CV Median (%)`)
-  })
-  
-  
-  
-  # Build summary table
-  tms_norm_table_list1 <- function()({
-    gridExtra::tableGrob(rawdf2_1_tms(), rows = NULL, theme = tt)
-  })
-  
-  ## Save Report ##
-  output$norm_qc_report_download_tms <- downloadHandler(
-    filename = function(){
-      paste0("TMS_QC_Norm_Report_",unique(rawdf2_tms()$batch),"_",Sys.Date(),".pdf")
-    },
-    content = function(file) {
-      pdf(file, height = 11, width = 8.5)
-      print(
-        gridExtra::grid.arrange(
-          tms_norm_plot1() +
-            xlab("") +
-            ggtitle(paste("TMS Qualitative QC Report\n", unique(rawdf2_tms()$batch))) +
-            theme(plot.title = element_text(color = "black",
-                                            hjust = 0.5,
-                                            size = 20,
-                                            face = "bold")),
-       tms_norm_plot2() + theme(legend.position = "none"),
-       nrow = 2)
-      )
-      print(
-        gridExtra::grid.arrange(
-          tms_norm_table_list1())
-      )
-      dev.off()
-    }
-  )
- 
 }
 
 # run app -----------------------------------------------------------------
