@@ -386,8 +386,9 @@ wddir <- "/Volumes/chaubard-lab/shiny_workspace/csvs/"
 # ui ----------------------------------------------------------------------
 
 ui <- fluidPage(
-  # shinythemes::themeSelector(),
-  titlePanel("DFI Metabolomics QC (v1.8.8)"),
+  shinythemes::themeSelector(),
+  shinytheme("journal"),
+  titlePanel("DFI Metabolomics QC (v1.8.9)"),
   br(),
   
   # CSV file selector -------------------------------------------------------
@@ -861,7 +862,7 @@ server <- function(input, output, session) {
   
   
   # read in table as reactive 
-  meta <- reactive({ readin_meta_csv_single_file(file.path(wddir,input$filename),na.value = input$quant_zero_val) })
+  meta <- reactive({ readin_meta_csv_single_file(file.path(wddir,input$filename),na.value = input$quant_zero_val)})
 
   #show models and make plots
   modelstart <- reactive({
@@ -1760,7 +1761,15 @@ server <- function(input, output, session) {
       group_by(sampleid, compound_name) %>%
       summarise(heat_val = mean(heat_val)) %>%
       pivot_wider(names_from = compound_name, values_from = heat_val) %>%
-      # filter_all(all_vars(!is.infinite(.))) %>%
+      filter(!str_detect(sampleid, "[Mm][Bb]"),
+             !str_detect(sampleid, "[Pp][Oo][Oo][Ll][Ee][Dd]"),
+             !str_detect(sampleid, "[Bb][Hh][Ii][Qq][Cc]"),
+             !str_detect(sampleid, "[Pp][Ll][Aa][Ss][Mm][Aa]"),
+             !str_detect(sampleid, "[Hh][Ee][Xx][Aa][Nn][Ee][Ss]"),
+             !str_detect(sampleid, "[Ss][Tt][Aa][Nn][Dd][Aa][Rr][Dd]"),
+             !str_detect(sampleid, "50%_[Mm][Ee][Oo][Hh]"),
+             !str_detect(sampleid, "[Ee][Aa]_[Bb][Ll][Aa][Nn][Kk]"),
+             !str_detect(sampleid, "50%[Mm][Ee][Oo][Hh]")) %>%
       drop_na(.) %>%
       column_to_rownames(., var = "sampleid") %>%
       as.matrix(.) %>%
@@ -1777,63 +1786,6 @@ server <- function(input, output, session) {
     heatmap_plot()
   )
 
-  
-  # #make heatmap dataframe:
-  # heatmap_dataframe <- function()({
-  #   rawdf() %>%
-  #     left_join(conc_filter()) %>%
-  #     replace_na(list(checked="concentrated")) %>%
-  #     filter(conc==checked, is.na(itsd),
-  #            !grepl("(__CC[0-9]+__)", sampleid)) %>%
-  #     select(-checked) %>%
-  #     left_join(conc_int()) %>%
-  #     left_join(conc_int_heatmap()) %>%
-  #     group_by(compound_name) %>% 
-  #     mutate(compound_med = median(peakarea)) %>% 
-  #     ungroup() %>% 
-  #     mutate(norm_peak = ifelse(is.finite(log((peakarea / compound_med), base = 2)),
-  #                               log((peakarea / compound_med), base = 2),
-  #                               (min_peak/10))) %>%
-  #     dplyr::select(sampleid, compound_name, norm_peak) %>%
-  #     spread(compound_name, norm_peak, fill = NA) %>%
-  #     reshape2::melt(id.vars=c("sampleid")) %>%
-  #     dplyr::rename(compound_name=variable,norm_peak=value) %>%
-  #     separate(sampleid,into=c("num","date","batch","sampleid","conc"),
-  #              sep="\\_\\_") %>%
-  #     filter(!is.na(norm_peak)) %>%
-  #     mutate(sampleid = ifelse(sampleid %in%
-  #                                c("PooledQC",
-  #                                  "Pooled_QC",
-  #                                  "SpikedPooledQC",
-  #                                  "Standards",
-  #                                  "BHIQC_[0-9]+",
-  #                                  "MB",
-  #                                  "MB_[0-9]+",
-  #                                  "PlasmaQC",
-  #                                  "Plasma_QC",
-  #                                  "Plasma[0-9]+",
-  #                                  "Hexanes"),
-  #                              paste(num, sampleid, conc, sep = "__"),
-  #                              sampleid)) %>%
-  #     filter(!str_detect(sampleid, "MB"),
-  #            !str_detect(sampleid, "Pooled"),
-  #            !str_detect(sampleid, "BHIQC"),
-  #            !str_detect(sampleid, "Plasma"),
-  #            !str_detect(sampleid, "Hexanes"),
-  #            !grepl("CC[0-9]+", sampleid)) %>%
-  #     dplyr::select(sampleid, compound_name, norm_peak) %>%
-  #     mutate(norm_peak = round(norm_peak,5)) %>%
-  #     group_by(sampleid, compound_name) %>%
-  #     summarise(norm_peak = mean(norm_peak)) %>%
-  #     pivot_wider(names_from = compound_name, values_from = norm_peak) %>%
-  #     filter_all(all_vars(!is.infinite(.))) %>%
-  #     drop_na(.)
-  # })
-  
-  # output$heatmap_dataframe <- renderDataTable(
-  #   heatmap_dataframe()
-  # )
-  
   
   heatmap_data <- function()({
     rawdf() %>%
@@ -1862,7 +1814,15 @@ server <- function(input, output, session) {
       group_by(sampleid, compound_name) %>%
       summarise(heat_val = mean(heat_val)) %>%
       pivot_wider(names_from = compound_name, values_from = heat_val) %>%
-      # filter_all(all_vars(!is.infinite(.))) %>%
+      filter(!str_detect(sampleid, "[Mm][Bb]"),
+             !str_detect(sampleid, "[Pp][Oo][Oo][Ll][Ee][Dd]"),
+             !str_detect(sampleid, "[Bb][Hh][Ii][Qq][Cc]"),
+             !str_detect(sampleid, "[Pp][Ll][Aa][Ss][Mm][Aa]"),
+             !str_detect(sampleid, "[Hh][Ee][Xx][Aa][Nn][Ee][Ss]"),
+             !str_detect(sampleid, "[Ss][Tt][Aa][Nn][Dd][Aa][Rr][Dd]"),
+             !str_detect(sampleid, "50%_[Mm][Ee][Oo][Hh]"),
+             !str_detect(sampleid, "[Ee][Aa]_[Bb][Ll][Aa][Nn][Kk]"),
+             !str_detect(sampleid, "50%[Mm][Ee][Oo][Hh]")) %>%
       drop_na(.) %>%
       column_to_rownames(., var = "sampleid") %>%
       as.matrix(.) %>%
