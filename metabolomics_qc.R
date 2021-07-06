@@ -388,7 +388,7 @@ wddir <- "/Volumes/chaubard-lab/shiny_workspace/csvs/"
 ui <- fluidPage(
   shinythemes::themeSelector(),
   shinytheme("journal"),
-  titlePanel("DFI Metabolomics QC (v1.8.9)"),
+  titlePanel("DFI Metabolomics QC (v1.8.10)"),
   br(),
   
   # CSV file selector -------------------------------------------------------
@@ -435,6 +435,8 @@ ui <- fluidPage(
                            br(),
                            dataTableOutput("conc"),
                            plotOutput("quant"),
+                           h4("Calibration Curve Peak Areas"),
+                           dataTableOutput("calib_table"),
                            h4("Fitted linear model stats:"),
                            dataTableOutput("model"), # Slope table
                            br(),
@@ -543,6 +545,8 @@ ui <- fluidPage(
                            #            width = "150%"),
                            checkboxInput("sety","set y?",value = 0),
                            numericInput("yint","Y intercept:",value=0),
+                           h4("Calibration Curve Peak Areas"),
+                           dataTableOutput("calib_table2"),
                            h4("Fitted linear model stats:"),
                            dataTableOutput("model2"),
                            br(),
@@ -592,7 +596,7 @@ ui <- fluidPage(
                            splitLayout(#cellWidths = c("25%","75%"),
                              # uiOutput("compound_list2"),
                              plotOutput("raw_boxplots2",height="750px")),
-                           dataTableOutput("TESTMAP"),
+                           # dataTableOutput("TESTMAP"),
                            downloadButton("heatmap_table2", "Download Indole Heatmap Data"),
                            # plotOutput("TEST_PLOT",
                            #            height = "800px",
@@ -694,7 +698,7 @@ ui <- fluidPage(
                          ),
                          mainPanel(
                            br(),
-                           dataTableOutput("BATEST1"),
+                           # dataTableOutput("BATEST1"),
                            downloadButton("ba_norm_qc_report_download", "Download Bile Acid QC Norm Report", class = "butt"),
                            tags$style(type="text/css", "#ba_norm_qc_report_download {background-color:green;color: white}"),
                            # plotOutput("TEST_PLOT",
@@ -740,7 +744,7 @@ ui <- fluidPage(
                                                    value=1000)
                          ),
                          mainPanel(
-                           dataTableOutput("TMSTEST1"),
+                           # dataTableOutput("TMSTEST1"),
                            br(),
                            downloadButton("norm_qc_report_download_tms", "Download TMS QC Norm Report", class = "butt"),
                            tags$style(type="text/css", "#norm_qc_report_download_tms {background-color:green;color: white}"),
@@ -919,7 +923,7 @@ server <- function(input, output, session) {
       left_join(cutoff_df()) %>%
       filter(conc_val <= maxcc,
              conc_val >= mincc) %>%
-      ggplot(aes(x=conc_val,y=norm_peak)) +
+        ggplot(aes(x=conc_val,y=norm_peak)) +
       geom_point(size=3) +
       geom_smooth(method="lm") +
       theme(strip.text=element_text(size=15),
@@ -929,6 +933,38 @@ server <- function(input, output, session) {
   
   output$quant <- renderPlot(
     quant_plot()
+  )
+  
+  #make calibration peak area table
+  calib_table <- reactive({
+    
+    compounds = unlist(strsplit(input$compounds, split=","))
+    compounds = factor(compounds,level=unique(compounds))
+    
+    meta() %>%
+      filter(compound_name %in% compounds) %>%
+      inner_join(quant_conc_tbl()) %>%
+      mutate(compound_name=factor(compound_name,levels=unique(compounds))) %>%
+      replace_na(list(itsd="peak")) %>%
+      reshape2::dcast(sampleid+compound_name+conc ~ itsd,value.var="peakarea") %>%
+      mutate(#peak = ifelse(peak <= 10000,0,peak),
+        norm_peak=peak / ITSD) %>%
+      filter(grepl("\\_CC[0-9]",sampleid)) %>%
+      mutate(curveLab=str_extract(sampleid,"\\_CC[1-9][0-9]+\\_|\\_CC[1-9]+\\_"),
+             curveLab=gsub("\\_","",curveLab)) %>%
+      left_join(conc_tbl()) %>%
+      left_join(cutoff_df()) %>%
+      filter(conc_val <= maxcc,
+             conc_val >= mincc) %>%
+      dplyr::rename(slope_value=conc_val) %>% 
+      select(sampleid, compound_name, conc, curveLab, ITSD, peak, norm_peak, slope_value, maxcc, mincc)
+  })
+  
+  output$calib_table <- renderDataTable(
+    calib_table() %>%
+      datatable() %>%
+      formatRound(c(5:ncol(calib_table())), 3) #%>% 
+      # formatStyle(columns = c(4:ncol(calib_table())), 'text-align' = 'center')
   )
   
   #make quant table
@@ -2338,7 +2374,39 @@ server <- function(input, output, session) {
       formatStyle(columns = c(2:4), 'text-align' = 'center')
   )
 
-
+  #make calibration peak area table
+  calib_table2 <- reactive({
+    
+    compounds2 = unlist(strsplit(input$compounds2, split=","))
+    compounds2 = factor(compounds2,levels=compounds2)
+    
+    indole_meta() %>%
+      mutate(compound_name=gsub("\\_[0-9]+$","",compound_name)) %>%
+      filter(compound_name %in% compounds2) %>%
+      mutate(compound_name=factor(compound_name,levels=compounds2)) %>%
+      replace_na(list(itsd="peak")) %>%
+      reshape2::dcast(Data.File+compound_name+conc ~ itsd,value.var="peakarea") %>%
+      mutate(#peak = ifelse(peak <= 10000,0,peak),
+        norm_peak=peak / ITSD) %>%
+      filter(grepl("\\_[Cc][Cc][1-9][0-9]+\\_|\\_[Cc][Cc][1-9]+\\_", Data.File)) %>%
+      mutate(curveLab=str_extract(Data.File,"\\_[Cc][Cc][1-9][0-9]+\\_|\\_[Cc][Cc][1-9]+\\_"),
+             curveLab=gsub("\\_","",curveLab),
+             curveLab = tolower(curveLab)) %>%
+      left_join(conc_tbl2()) %>%
+      left_join(cutoff_df2()) %>%
+      filter(conc_val <= maxcc,
+             conc_val >= mincc) %>%
+      dplyr::rename(slope_value=conc_val,
+                    sampleid = Data.File) %>% 
+      select(sampleid, compound_name, conc, curveLab, ITSD, peak, norm_peak, slope_value, maxcc, mincc)
+  })
+  
+  output$calib_table2 <- renderDataTable(
+    calib_table2() %>%
+      datatable() %>%
+      formatRound(c(5:ncol(calib_table2())), 3) #%>% 
+    # formatStyle(columns = c(4:ncol(calib_table2())), 'text-align' = 'center')
+  )
 
   #make quant graph
   quant_plot2 <- reactive({
@@ -2391,9 +2459,8 @@ server <- function(input, output, session) {
       mutate(quant_val =  (norm_peak - (`(Intercept)`))/slope_value) %>%
       arrange(compound_name) %>%
       mutate(quant_val = ifelse(quant_val < 0,0,quant_val),
-             quant_val = round(quant_val,2))
-
-
+             quant_val = round(quant_val,2)) %>% 
+      dplyr::rename(sampleid = Data.File)
   })
 
   output$quant_tbl2 <- renderDataTable(
@@ -2425,7 +2492,8 @@ server <- function(input, output, session) {
       separate(Data.File,into=c("num","date","batch","sampleid","conc"),
                sep="\\_\\_") %>%
       arrange(num) %>%
-      select(-num,-date,-batch,-conc)
+      select(-num,-date,-batch,-conc) %>% 
+      dplyr::rename(sampleid = Data.File)
 
 
   })
@@ -5359,7 +5427,7 @@ indole_rawdf2_1 <- reactive({
   
   
   #make heatmap:
-  heatmap_plot_tms <- reactive({
+  heatmap_plot_tms <- function()({
     rawdf_tms() %>%
       left_join(conc_filter_tms()) %>%
       replace_na(list(checked="nosplit"))%>%
@@ -5419,7 +5487,7 @@ indole_rawdf2_1 <- reactive({
     heatmap_plot_tms()
   )
   
-  heatmap_data_tms <- reactive({
+  heatmap_data_tms <- function()({
     rawdf_tms() %>%
       left_join(conc_filter_tms()) %>%
       replace_na(list(checked="nosplit"))%>%
@@ -5483,6 +5551,7 @@ indole_rawdf2_1 <- reactive({
     },
     contentType = 'PDF'
   )
+  
   
   #download table
   #make wide table
