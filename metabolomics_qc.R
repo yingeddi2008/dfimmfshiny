@@ -388,7 +388,7 @@ wddir <- "/Volumes/chaubard-lab/shiny_workspace/csvs/"
 ui <- fluidPage(
   shinythemes::themeSelector(),
   shinytheme("journal"),
-  titlePanel("DFI Metabolomics QC (v1.8.10)"),
+  titlePanel("DFI Metabolomics QC (v1.8.11)"),
   br(),
   
   # CSV file selector -------------------------------------------------------
@@ -2492,8 +2492,7 @@ server <- function(input, output, session) {
       separate(Data.File,into=c("num","date","batch","sampleid","conc"),
                sep="\\_\\_") %>%
       arrange(num) %>%
-      select(-num,-date,-batch,-conc) %>% 
-      dplyr::rename(sampleid = Data.File)
+      select(-num,-date,-batch,-conc)
 
 
   })
@@ -3971,7 +3970,7 @@ indole_rawdf2_1 <- reactive({
   )
 
   #make quant table
-  quant_table5 <- reactive({
+  quant_table5 <- function()({
 
     compounds5 = tolower(unlist(strsplit(input$compounds5, split=",")))
 
@@ -4000,7 +3999,7 @@ indole_rawdf2_1 <- reactive({
     # formatStyle(columns = c(4:ncol(quant_table5())), 'text-align' = 'center')
   )
 
-  quant_table_dl5 <- reactive({
+  quant_table_dl5 <- function()({
 
     compounds5 = tolower(unlist(strsplit(input$compounds5, split=",")))
 
