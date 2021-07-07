@@ -388,7 +388,7 @@ wddir <- "/Volumes/chaubard-lab/shiny_workspace/csvs/"
 ui <- fluidPage(
   shinythemes::themeSelector(),
   shinytheme("journal"),
-  titlePanel("DFI Metabolomics QC (v1.8.11)"),
+  titlePanel("DFI Metabolomics QC (v1.8.12)"),
   br(),
   
   # CSV file selector -------------------------------------------------------
@@ -5543,7 +5543,7 @@ indole_rawdf2_1 <- reactive({
     content = function(file) {
       pdf(file,
           height = nrow(heatmap_data_tms()) / (nrow(heatmap_data_tms())*0.035),
-          width = (ncol(heatmap_data_tms()) / (ncol(heatmap_data_tms())*0.07))+1.5
+          width = (ncol(heatmap_data_tms()) / (ncol(heatmap_data_tms())*0.03))+3
       )
       heatmap_plot_tms()
       dev.off()
