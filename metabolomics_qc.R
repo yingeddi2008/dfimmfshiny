@@ -388,7 +388,7 @@ wddir <- "/Volumes/chaubard-lab/shiny_workspace/csvs/"
 ui <- fluidPage(
   shinythemes::themeSelector(),
   shinytheme("journal"),
-  titlePanel("DFI Metabolomics QC (v1.8.15)"),
+  titlePanel("DFI Metabolomics QC (v1.8.16)"),
   br(),
   
   # CSV file selector -------------------------------------------------------
@@ -4221,7 +4221,7 @@ indole_rawdf2_1 <- reactive({
                                           (((nrow(bile_quant_bar_data())))+(nrow(bile_quant_bar_data())))*1000 /
                                             (nrow(bile_quant_bar_data()) * nrow(bile_quant_bar_data())))
               )) +
-        facet_grid(~compound_name, space = "free_x") +
+        facet_wrap(~compound_name, scales = "free_y") +
         scale_fill_manual(values = c(pal_ucscgb("default", alpha = 0.7)(7), "bisque4"))+
         # scale_fill_locuszoom() +
         xlab("\nSampleID") +
@@ -4280,7 +4280,7 @@ indole_rawdf2_1 <- reactive({
                                           (((nrow(bile_quant_bar_data())))+(nrow(bile_quant_bar_data())))*1000 /
                                             (nrow(bile_quant_bar_data()) * nrow(bile_quant_bar_data())))
               )) +
-        facet_grid(~compound_name, space = "free_x") +
+        facet_wrap(~compound_name, scales = "free_y") +
         scale_fill_manual(values = c(pal_ucscgb("default", alpha = 0.7)(7), "bisque4"))+
         # scale_fill_locuszoom() +
         xlab("\nSampleID") +
