@@ -388,7 +388,7 @@ wddir <- "/Volumes/chaubard-lab/shiny_workspace/csvs/"
 ui <- fluidPage(
   shinythemes::themeSelector(),
   shinytheme("journal"),
-  titlePanel("DFI Metabolomics QC (v1.8.14)"),
+  titlePanel("DFI Metabolomics QC (v1.8.15)"),
   br(),
   
   # CSV file selector -------------------------------------------------------
@@ -496,8 +496,11 @@ ui <- fluidPage(
                                        uiOutput("compound_list"),
                                        plotOutput("raw_boxplots",height="1515px")),
                            h4("Normalized heatmap"),
+                           br(),
+                           br(),
                            downloadButton("heatmap_download", "Download PFBBr Normalized Heatmap"),
-                           h4("This heatmap shows the log2 fold-change of median-normalized peak areas for each compound. Compounds are clustered on the y-axis and samples are clustered on the x-axis."),
+                           h4("This heatmap shows the log2 fold-change of median-normalized peak areas for each compound. Samples are clustered on the x-axis. If the box is checked, compounds are also clustered on the y-axis."),
+                           checkboxInput("pfbbr_cluster","Cluster Compounds?"),
                            plotOutput("heatmap_plot",
                                       height = "1000px",
                                       width = "125%"),
@@ -698,7 +701,6 @@ ui <- fluidPage(
                          ),
                          mainPanel(
                            br(),
-                           # dataTableOutput("BATEST1"),
                            downloadButton("ba_norm_qc_report_download", "Download Bile Acid QC Norm Report", class = "butt"),
                            tags$style(type="text/css", "#ba_norm_qc_report_download {background-color:green;color: white}"),
                            # plotOutput("TEST_PLOT",
@@ -711,7 +713,8 @@ ui <- fluidPage(
                                        plotOutput("raw_boxplots_bile_acid",height="1072px")),
                            h4("Normalized heatmap"),
                            downloadButton("heatmap_download_bile_acid", "Download Bile Acid Heatmap"),
-                           h4("This heatmap shows the log2 fold-change of median-normalized peak areas for each compound. Compounds are clustered on the y-axis and samples are clustered on the x-axis."),
+                           h4("This heatmap shows the log2 fold-change of median-normalized peak areas for each compound. Samples are clustered on the x-axis. If the box is checked, compounds are also clustered on the y-axis."),
+                           checkboxInput("bile_cluster","Cluster Compounds?"),
                            plotOutput("heatmap_plot_bile_acid",
                                       height = "1000px",
                                       width = "125%"),
@@ -1771,51 +1774,102 @@ server <- function(input, output, session) {
 
   #make heatmap:
   heatmap_plot <- function()({
-    rawdf() %>%
-      left_join(conc_filter()) %>%
-      filter(conc==checked, is.na(itsd),
-             !grepl("(__CC[0-9]+__)", sampleid)) %>%
-      left_join(conc_int()) %>%
-      # left_join(conc_int_heatmap()) %>%
-      mutate(norm_peak = peakarea / avg) %>%
-      group_by(compound_name) %>% 
-      mutate(compound_med = median(norm_peak)) %>% 
-      ungroup() %>% 
-      mutate(heat_val = log((norm_peak / compound_med), base = 2)) %>%
-      dplyr::select(sampleid, compound_name, heat_val) %>%
-      spread(compound_name, heat_val, fill = NA) %>%
-      reshape2::melt(id.vars=c("sampleid")) %>%
-      dplyr::rename(compound_name=variable,heat_val=value) %>%
-      separate(sampleid,into=c("num","date","batch","sampleid","conc"),
-               sep="\\_\\_") %>%
-      filter(!is.na(heat_val)) %>%
-      mutate(sampleid = ifelse(str_detect(sampleid, "[Mm][Bb]|[Pp][Oo][Oo][Ll][Ee][Dd]|[Bb][Hh][Ii][Qq][Cc]|[Pp][Ll][Aa][Ss][Mm][Aa]|[Hh][Ee][Xx][Aa][Nn][Ee][Ss]|[Ss][Tt][Aa][Nn][Dd][Aa][Rr][Dd]|50%_[Mm][Ee][Oo][Hh]|[Ee][Aa]_[Bb][Ll][Aa][Nn][Kk]|50%[Mm][Ee][Oo][hh]"),
-                               paste(num, sampleid, conc, sep = "__"),
-                               sampleid)) %>%
-      dplyr::select(sampleid, compound_name, heat_val) %>%
-      mutate(heat_val = round(heat_val,5)) %>%
-      group_by(sampleid, compound_name) %>%
-      summarise(heat_val = mean(heat_val)) %>%
-      pivot_wider(names_from = compound_name, values_from = heat_val) %>%
-      filter(!str_detect(sampleid, "[Mm][Bb]"),
-             !str_detect(sampleid, "[Pp][Oo][Oo][Ll][Ee][Dd]"),
-             !str_detect(sampleid, "[Bb][Hh][Ii][Qq][Cc]"),
-             !str_detect(sampleid, "[Pp][Ll][Aa][Ss][Mm][Aa]"),
-             !str_detect(sampleid, "[Hh][Ee][Xx][Aa][Nn][Ee][Ss]"),
-             !str_detect(sampleid, "[Ss][Tt][Aa][Nn][Dd][Aa][Rr][Dd]"),
-             !str_detect(sampleid, "50%_[Mm][Ee][Oo][Hh]"),
-             !str_detect(sampleid, "[Ee][Aa]_[Bb][Ll][Aa][Nn][Kk]"),
-             !str_detect(sampleid, "50%[Mm][Ee][Oo][Hh]")) %>%
-      drop_na(.) %>%
+    if(input$pfbbr_cluster==F){
+      rawdf() %>%
+        left_join(conc_filter()) %>%
+        filter(conc==checked, is.na(itsd),
+               !grepl("(__CC[0-9]+__)", sampleid)) %>%
+        left_join(conc_int()) %>%
+        # left_join(conc_int_heatmap()) %>%
+        mutate(norm_peak = peakarea / avg) %>%
+        group_by(compound_name) %>% 
+        mutate(compound_med = median(norm_peak)) %>% 
+        ungroup() %>% 
+        mutate(heat_val = log((norm_peak / compound_med), base = 2)) %>%
+        dplyr::select(sampleid, compound_name, heat_val) %>%
+        spread(compound_name, heat_val, fill = NA) %>%
+        reshape2::melt(id.vars=c("sampleid")) %>%
+        dplyr::rename(compound_name=variable,heat_val=value) %>%
+        separate(sampleid,into=c("num","date","batch","sampleid","conc"),
+                 sep="\\_\\_") %>%
+        filter(!is.na(heat_val)) %>%
+        mutate(sampleid = ifelse(str_detect(sampleid, "[Mm][Bb]|[Pp][Oo][Oo][Ll][Ee][Dd]|[Bb][Hh][Ii][Qq][Cc]|[Pp][Ll][Aa][Ss][Mm][Aa]|[Hh][Ee][Xx][Aa][Nn][Ee][Ss]|[Ss][Tt][Aa][Nn][Dd][Aa][Rr][Dd]|50%_[Mm][Ee][Oo][Hh]|[Ee][Aa]_[Bb][Ll][Aa][Nn][Kk]|50%[Mm][Ee][Oo][hh]"),
+                                 paste(num, sampleid, conc, sep = "__"),
+                                 sampleid)) %>%
+        dplyr::select(sampleid, compound_name, heat_val) %>%
+        mutate(heat_val = round(heat_val,5)) %>%
+        group_by(sampleid, compound_name) %>%
+        summarise(heat_val = mean(heat_val)) %>%
+        pivot_wider(names_from = compound_name, values_from = heat_val) %>%
+        filter(!str_detect(sampleid, "[Mm][Bb]"),
+               !str_detect(sampleid, "[Pp][Oo][Oo][Ll][Ee][Dd]"),
+               !str_detect(sampleid, "[Bb][Hh][Ii][Qq][Cc]"),
+               !str_detect(sampleid, "[Pp][Ll][Aa][Ss][Mm][Aa]"),
+               !str_detect(sampleid, "[Hh][Ee][Xx][Aa][Nn][Ee][Ss]"),
+               !str_detect(sampleid, "[Ss][Tt][Aa][Nn][Dd][Aa][Rr][Dd]"),
+               !str_detect(sampleid, "50%_[Mm][Ee][Oo][Hh]"),
+               !str_detect(sampleid, "[Ee][Aa]_[Bb][Ll][Aa][Nn][Kk]"),
+               !str_detect(sampleid, "50%[Mm][Ee][Oo][Hh]")) %>%
+        drop_na(.) %>%
+      select(sampleid, Acetate, Propionate, Crotonate, Butyrate, Valerate, Hexanoate, Isobutyrate, Isovaleric.Acid, `2.Methylbutyrate`, `4.Methylvalerate`, `3.Aminoisobutyrate`,`3.Aminoisobutyrate2`, `5.Aminovalerate`, `2.Hydroxy.3.methylbutyrate`, `2.hydroxyhexanoate`, Glycine = Glycine_2_USETHIS, Alanine, Serine, Proline, Valine, Threonine = Threonine_2_USETHIS, Cysteine, Leucine, Isoleucine, Aspartate, Lysine, Glutamate, Methionine, Phenylalanine, Tryptophan, Phenol, `4.Ethylphenol`, Catechol, p.Cresol, Benzoate, Tyramine, Tyrosine, Phenylacetate, Toluate, Hydrocinnamate, Vanillin, Succinate, Palmitate, Indole.3.acetate, Indole.3.carboxaldehyde, Indole.3.propionate, Trans.indole.3.acrylate, Tryptamine, Itaconate, Desaminotyrosine, Dopamine, Histamine, Synephrine, `2.Hydroxyisocaproate`) %>% 
       column_to_rownames(., var = "sampleid") %>%
       as.matrix(.) %>%
       t(.) %>%
       pheatmap(., scale = "none",
+               cluster_rows = F,
                cellheight = nrow(heatmap_data()) / (nrow(heatmap_data())*0.075),
                cellwidth = ncol(heatmap_data()) / (ncol(heatmap_data())*0.0825)+1.5,
                angle_col = "90",
-               color=colorRampPalette(c("navy", "white", "red"))(50),
+               color=colorRampPalette(c("navy", "white", "red"))(50)
       )
+    }else{
+      rawdf() %>%
+        left_join(conc_filter()) %>%
+        filter(conc==checked, is.na(itsd),
+               !grepl("(__CC[0-9]+__)", sampleid)) %>%
+        left_join(conc_int()) %>%
+        # left_join(conc_int_heatmap()) %>%
+        mutate(norm_peak = peakarea / avg) %>%
+        group_by(compound_name) %>% 
+        mutate(compound_med = median(norm_peak)) %>% 
+        ungroup() %>% 
+        mutate(heat_val = log((norm_peak / compound_med), base = 2)) %>%
+        dplyr::select(sampleid, compound_name, heat_val) %>%
+        spread(compound_name, heat_val, fill = NA) %>%
+        reshape2::melt(id.vars=c("sampleid")) %>%
+        dplyr::rename(compound_name=variable,heat_val=value) %>%
+        separate(sampleid,into=c("num","date","batch","sampleid","conc"),
+                 sep="\\_\\_") %>%
+        filter(!is.na(heat_val)) %>%
+        mutate(sampleid = ifelse(str_detect(sampleid, "[Mm][Bb]|[Pp][Oo][Oo][Ll][Ee][Dd]|[Bb][Hh][Ii][Qq][Cc]|[Pp][Ll][Aa][Ss][Mm][Aa]|[Hh][Ee][Xx][Aa][Nn][Ee][Ss]|[Ss][Tt][Aa][Nn][Dd][Aa][Rr][Dd]|50%_[Mm][Ee][Oo][Hh]|[Ee][Aa]_[Bb][Ll][Aa][Nn][Kk]|50%[Mm][Ee][Oo][hh]"),
+                                 paste(num, sampleid, conc, sep = "__"),
+                                 sampleid)) %>%
+        dplyr::select(sampleid, compound_name, heat_val) %>%
+        mutate(heat_val = round(heat_val,5)) %>%
+        group_by(sampleid, compound_name) %>%
+        summarise(heat_val = mean(heat_val)) %>%
+        pivot_wider(names_from = compound_name, values_from = heat_val) %>%
+        filter(!str_detect(sampleid, "[Mm][Bb]"),
+               !str_detect(sampleid, "[Pp][Oo][Oo][Ll][Ee][Dd]"),
+               !str_detect(sampleid, "[Bb][Hh][Ii][Qq][Cc]"),
+               !str_detect(sampleid, "[Pp][Ll][Aa][Ss][Mm][Aa]"),
+               !str_detect(sampleid, "[Hh][Ee][Xx][Aa][Nn][Ee][Ss]"),
+               !str_detect(sampleid, "[Ss][Tt][Aa][Nn][Dd][Aa][Rr][Dd]"),
+               !str_detect(sampleid, "50%_[Mm][Ee][Oo][Hh]"),
+               !str_detect(sampleid, "[Ee][Aa]_[Bb][Ll][Aa][Nn][Kk]"),
+               !str_detect(sampleid, "50%[Mm][Ee][Oo][Hh]")) %>%
+        drop_na(.) %>%
+        select(sampleid, Acetate, Propionate, Crotonate, Butyrate, Valerate, Hexanoate, Isobutyrate, Isovaleric.Acid, `2.Methylbutyrate`, `4.Methylvalerate`, `3.Aminoisobutyrate`,`3.Aminoisobutyrate2`, `5.Aminovalerate`, `2.Hydroxy.3.methylbutyrate`, `2.hydroxyhexanoate`, Glycine = Glycine_2_USETHIS, Alanine, Serine, Proline, Valine, Threonine = Threonine_2_USETHIS, Cysteine, Leucine, Isoleucine, Aspartate, Lysine, Glutamate, Methionine, Phenylalanine, Tryptophan, Phenol, `4.Ethylphenol`, Catechol, p.Cresol, Benzoate, Tyramine, Tyrosine, Phenylacetate, Toluate, Hydrocinnamate, Vanillin, Succinate, Palmitate, Indole.3.acetate, Indole.3.carboxaldehyde, Indole.3.propionate, Trans.indole.3.acrylate, Tryptamine, Itaconate, Desaminotyrosine, Dopamine, Histamine, Synephrine, `2.Hydroxyisocaproate`) %>% 
+        column_to_rownames(., var = "sampleid") %>%
+        as.matrix(.) %>%
+        t(.) %>%
+        pheatmap(., scale = "none",
+                 cellheight = nrow(heatmap_data()) / (nrow(heatmap_data())*0.075),
+                 cellwidth = ncol(heatmap_data()) / (ncol(heatmap_data())*0.0825)+1.5,
+                 angle_col = "90",
+                 color=colorRampPalette(c("navy", "white", "red"))(50)
+        )
+    }
   })
 
   output$heatmap_plot <- renderPlot(
@@ -1860,14 +1914,26 @@ server <- function(input, output, session) {
              !str_detect(sampleid, "[Ee][Aa]_[Bb][Ll][Aa][Nn][Kk]"),
              !str_detect(sampleid, "50%[Mm][Ee][Oo][Hh]")) %>%
       drop_na(.) %>%
+      select(sampleid, Acetate, Propionate, Crotonate, Butyrate, Valerate, Hexanoate, Isobutyrate, Isovaleric.Acid, `2.Methylbutyrate`, `4.Methylvalerate`, `3.Aminoisobutyrate`,`3.Aminoisobutyrate2`, `5.Aminovalerate`, `2.Hydroxy.3.methylbutyrate`, `2.hydroxyhexanoate`, Glycine = Glycine_2_USETHIS, Alanine, Serine, Proline, Valine, Threonine = Threonine_2_USETHIS, Cysteine, Leucine, Isoleucine, Aspartate, Lysine, Glutamate, Methionine, Phenylalanine, Tryptophan, Phenol, `4.Ethylphenol`, Catechol, p.Cresol, Benzoate, Tyramine, Tyrosine, Phenylacetate, Toluate, Hydrocinnamate, Vanillin, Succinate, Palmitate, Indole.3.acetate, Indole.3.carboxaldehyde, Indole.3.propionate, Trans.indole.3.acrylate, Tryptamine, Itaconate, Desaminotyrosine, Dopamine, Histamine, Synephrine, `2.Hydroxyisocaproate`) %>% 
       column_to_rownames(., var = "sampleid") %>%
       as.matrix(.) %>%
       t(.)
   })
+  
+  
+  heatmap_label <- reactive({
+    if(input$pfbbr_cluster==F){
+      return("clustered_rows_")
+    } else {
+      return("clustered_rows_cols_")
+    }
+  })
+
 
   output$heatmap_download <- downloadHandler(
+    
     filename = function(){
-      paste0("normalized_heatmap_",gsub(".csv","",input$filename),"_",Sys.Date(),".pdf")
+      paste0(heatmap_label(), gsub(".csv","",input$filename),"_",Sys.Date(),".pdf")
     },
     content = function(file) {
       pdf(file,
@@ -1879,6 +1945,7 @@ server <- function(input, output, session) {
     },
     contentType = 'PDF'
   )
+
 
 
   #subset based on checkboxes.. make a dataframe of compounds in same order as checkboxes with input as a column
@@ -4832,6 +4899,7 @@ indole_rawdf2_1 <- reactive({
 
   #make heatmap:
   heatmap_plot_bile_acid <- function()({
+    if(input$bile_cluster==F){
     rawdf_ba() %>%
       left_join(conc_filter_bile_acid()) %>%
       replace_na(list(checked="concentrated")) %>%
@@ -4867,15 +4935,64 @@ indole_rawdf2_1 <- reactive({
              !str_detect(sampleid, "[Ee][Aa]_[Bb][Ll][Aa][Nn][Kk]"),
              !str_detect(sampleid, "50%[Mm][Ee][Oo][Hh]")) %>%
       drop_na(.) %>%
+        select(sampleid, `cholic acid`, `chenodeoxycholic acid`, `taurocholic acid`, `taurochenodeoxycholic acid`, `glycocholic acid`, `glycochenodeoxycholic acid`, `deoxycholic acid`, `lithocholic acid`, `3-oxochenodeoxycholic acid`, `3-deoxycholic acid`, `7-oxodeoxycholic acid`, `3-oxodeoxycholic acid`, `isodeoxycholic acid`, `3-oxolithocholic acid`, `allolithocholic acid`, `isolithocholic acid`, `alloisolithocholic acid`, `7-oxolithocholic acid`, `12-oxolithocholic acid`, `12-oxochenodeoxycholic acid`, `glycodeoxycholic acid`, `taurodeoxycholic acid`, `glycolithocholic acid`, `taurolithocholic acid`, `ursodeoxycholic acid`, `tauroursodeoxycholic acid`, `glycoursodeoxycholic acid`, `hyodeoxycholic acid`, `taurohyodeoxycholic acid`, `glycohyodeoxycholic acid`, `glycodehydrocholic acid`, `allocholic acid`, `3-oxocholic acid`, `beta-muricholic acid`, `alpha-muricholic acid`, `gamma-muricholic acid`, `omega-muricholic acid`, `tauro-alpha-muricholic acid`) %>% 
       column_to_rownames(., var = "sampleid") %>%
       as.matrix(.) %>%
       t(.) %>%
       pheatmap(., scale = "none",
+               cluster_rows = F,
                cellheight = nrow(heatmap_data_bile_acid()) / (nrow(heatmap_data_bile_acid())*0.075),
                cellwidth = ncol(heatmap_data_bile_acid()) / (ncol(heatmap_data_bile_acid())*0.0825)+1.5,
                angle_col = "90",
-               color=colorRampPalette(c("navy", "white", "red"))(50),
+               color=colorRampPalette(c("navy", "white", "red"))(50)
       )
+    }else{
+      rawdf_ba() %>%
+        left_join(conc_filter_bile_acid()) %>%
+        replace_na(list(checked="concentrated")) %>%
+        filter(conc==checked, is.na(itsd),
+               !grepl("(CC[0-9]+)", sampleid)) %>%
+        select(-checked) %>%
+        left_join(conc_int_bile_acid()) %>%
+        mutate(norm_peak = peakarea / avg) %>%
+        group_by(compound_name) %>% 
+        mutate(compound_med = median(norm_peak)) %>% 
+        ungroup() %>% 
+        mutate(heat_val = log((norm_peak / compound_med), base = 2)) %>%
+        separate(Data.File,into=c("num","date","batch","sampleid","conc"),
+                 sep="__") %>%
+        mutate(sampleid = ifelse(str_detect(sampleid, "[Mm][Bb]|[Pp][Oo][Oo][Ll][Ee][Dd]|[Bb][Hh][Ii][Qq][Cc]|[Pp][Ll][Aa][Ss][Mm][Aa]|[Hh][Ee][Xx][Aa][Nn][Ee][Ss]|[Ss][Tt][Aa][Nn][Dd][Aa][Rr][Dd]|50%_[Mm][Ee][Oo][Hh]|[Ee][Aa]_[Bb][Ll][Aa][Nn][Kk]|50%[Mm][Ee][Oo][hh]"),
+                                 paste(num, sampleid, conc, sep = "__"),
+                                 sampleid)) %>%
+        mutate(sampleid = gsub(pattern = "X", replacement = "", sampleid)) %>%
+        dplyr::select(num, date, batch, sampleid, conc, compound_name, heat_val) %>%
+        ungroup() %>%
+        add_count(date,batch,sampleid, compound_name, conc) %>%
+        mutate(sampleid = ifelse(n > 1, paste(num, sampleid, sep = "__"), sampleid),
+               sampleid = gsub(pattern = "X", replacement = "", sampleid)) %>%
+        dplyr::select(sampleid, compound_name, heat_val) %>%
+        pivot_wider(names_from = compound_name, values_from = heat_val, values_fill = NA) %>%
+        filter(!str_detect(sampleid, "[Mm][Bb]"),
+               !str_detect(sampleid, "[Pp][Oo][Oo][Ll][Ee][Dd]"),
+               !str_detect(sampleid, "[Bb][Hh][Ii][Qq][Cc]"),
+               !str_detect(sampleid, "[Pp][Ll][Aa][Ss][Mm][Aa]"),
+               !str_detect(sampleid, "[Hh][Ee][Xx][Aa][Nn][Ee][Ss]"),
+               !str_detect(sampleid, "[Ss][Tt][Aa][Nn][Dd][Aa][Rr][Dd]"),
+               !str_detect(sampleid, "50%_[Mm][Ee][Oo][Hh]"),
+               !str_detect(sampleid, "[Ee][Aa]_[Bb][Ll][Aa][Nn][Kk]"),
+               !str_detect(sampleid, "50%[Mm][Ee][Oo][Hh]")) %>%
+        drop_na(.) %>%
+        select(sampleid, `cholic acid`, `chenodeoxycholic acid`, `taurocholic acid`, `taurochenodeoxycholic acid`, `glycocholic acid`, `glycochenodeoxycholic acid`, `deoxycholic acid`, `lithocholic acid`, `3-oxochenodeoxycholic acid`, `3-deoxycholic acid`, `7-oxodeoxycholic acid`, `3-oxodeoxycholic acid`, `isodeoxycholic acid`, `3-oxolithocholic acid`, `allolithocholic acid`, `isolithocholic acid`, `alloisolithocholic acid`, `7-oxolithocholic acid`, `12-oxolithocholic acid`, `12-oxochenodeoxycholic acid`, `glycodeoxycholic acid`, `taurodeoxycholic acid`, `glycolithocholic acid`, `taurolithocholic acid`, `ursodeoxycholic acid`, `tauroursodeoxycholic acid`, `glycoursodeoxycholic acid`, `hyodeoxycholic acid`, `taurohyodeoxycholic acid`, `glycohyodeoxycholic acid`, `glycodehydrocholic acid`, `allocholic acid`, `3-oxocholic acid`, `beta-muricholic acid`, `alpha-muricholic acid`, `gamma-muricholic acid`, `omega-muricholic acid`, `tauro-alpha-muricholic acid`) %>% 
+        column_to_rownames(., var = "sampleid") %>%
+        as.matrix(.) %>%
+        t(.) %>%
+        pheatmap(., scale = "none",
+                 cellheight = nrow(heatmap_data_bile_acid()) / (nrow(heatmap_data_bile_acid())*0.075),
+                 cellwidth = ncol(heatmap_data_bile_acid()) / (ncol(heatmap_data_bile_acid())*0.0825)+1.5,
+                 angle_col = "90",
+                 color=colorRampPalette(c("navy", "white", "red"))(50)
+        )
+    }
   })
 
   output$heatmap_plot_bile_acid <- renderPlot(
@@ -4918,18 +5035,25 @@ indole_rawdf2_1 <- reactive({
              !str_detect(sampleid, "[Ee][Aa]_[Bb][Ll][Aa][Nn][Kk]"),
              !str_detect(sampleid, "50%[Mm][Ee][Oo][Hh]")) %>%
       drop_na(.) %>%
+      select(sampleid, `cholic acid`, `chenodeoxycholic acid`, `taurocholic acid`, `taurochenodeoxycholic acid`, `glycocholic acid`, `glycochenodeoxycholic acid`, `deoxycholic acid`, `lithocholic acid`, `3-oxochenodeoxycholic acid`, `3-deoxycholic acid`, `7-oxodeoxycholic acid`, `3-oxodeoxycholic acid`, `isodeoxycholic acid`, `3-oxolithocholic acid`, `allolithocholic acid`, `isolithocholic acid`, `alloisolithocholic acid`, `7-oxolithocholic acid`, `12-oxolithocholic acid`, `12-oxochenodeoxycholic acid`, `glycodeoxycholic acid`, `taurodeoxycholic acid`, `glycolithocholic acid`, `taurolithocholic acid`, `ursodeoxycholic acid`, `tauroursodeoxycholic acid`, `glycoursodeoxycholic acid`, `hyodeoxycholic acid`, `taurohyodeoxycholic acid`, `glycohyodeoxycholic acid`, `glycodehydrocholic acid`, `allocholic acid`, `3-oxocholic acid`, `beta-muricholic acid`, `alpha-muricholic acid`, `gamma-muricholic acid`, `omega-muricholic acid`, `tauro-alpha-muricholic acid`) %>% 
       column_to_rownames(., var = "sampleid") %>%
       as.matrix(.) %>%
       t(.)
   })
   
-  output$BATEST1 <- renderDataTable(
-    heatmap_data_bile_acid()
-  )
-
+  
+  bile_heatmap_label <- reactive({
+    if(input$bile_cluster==F){
+      return("clustered_rows_")
+    } else {
+      return("clustered_rows_cols_")
+    }
+  })
+  
+  
   output$heatmap_download_bile_acid <- downloadHandler(
     filename = function(){
-      paste0("normalized_heatmap_",input$filename,"_",Sys.Date(),".pdf")
+      paste0(bile_heatmap_label(),gsub(".csv","",input$filename),"_",Sys.Date(),".pdf")
     },
     content = function(file) {
       pdf(file,
