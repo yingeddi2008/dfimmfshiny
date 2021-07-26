@@ -388,7 +388,7 @@ wddir <- "/Volumes/chaubard-lab/shiny_workspace/csvs/"
 ui <- fluidPage(
   shinythemes::themeSelector(),
   shinytheme("journal"),
-  titlePanel("DFI Metabolomics QC (v1.8.16)"),
+  titlePanel("DFI Metabolomics QC (v1.8.17)"),
   br(),
   
   # CSV file selector -------------------------------------------------------
@@ -1774,6 +1774,8 @@ server <- function(input, output, session) {
 
   #make heatmap:
   heatmap_plot <- function()({
+    heatmap_cmpds <- c("sampleid", "Acetate", "Propionate", "Crotonate", "Butyrate", "Valerate", "Hexanoate", "Isobutyrate", "Isovaleric.Acid", "2.Methylbutyrate", "4.Methylvalerate", "3.Aminoisobutyrate","3.Aminoisobutyrate2", "5.Aminovalerate", "2.Hydroxy.3.methylbutyrate", "2.hydroxyhexanoate", "Glycine = Glycine_2_USETHIS", "Alanine", "Serine", "Proline", "Valine", "Threonine = Threonine_2_USETHIS", "Cysteine", "Leucine", "Isoleucine", "Aspartate", "Lysine", "Glutamate", "Methionine", "Phenylalanine", "Tryptophan", "Phenol", "4.Ethylphenol", "Catechol", "p.Cresol", "Benzoate", "Tyramine", "Tyrosine", "Phenylacetate", "Toluate", "Hydrocinnamate", "Vanillin", "Succinate", "Palmitate", "Indole.3.acetate", "Indole.3.carboxaldehyde", "Indole.3.propionate", "Trans.indole.3.acrylate", "Tryptamine", "Itaconate", "Desaminotyrosine", "Dopamine", "Histamine", "Synephrine", "2.Hydroxyisocaproate")
+    
     if(input$pfbbr_cluster==F){
       rawdf() %>%
         left_join(conc_filter()) %>%
@@ -1811,7 +1813,7 @@ server <- function(input, output, session) {
                !str_detect(sampleid, "[Ee][Aa]_[Bb][Ll][Aa][Nn][Kk]"),
                !str_detect(sampleid, "50%[Mm][Ee][Oo][Hh]")) %>%
         drop_na(.) %>%
-      select(sampleid, Acetate, Propionate, Crotonate, Butyrate, Valerate, Hexanoate, Isobutyrate, Isovaleric.Acid, `2.Methylbutyrate`, `4.Methylvalerate`, `3.Aminoisobutyrate`,`3.Aminoisobutyrate2`, `5.Aminovalerate`, `2.Hydroxy.3.methylbutyrate`, `2.hydroxyhexanoate`, Glycine = Glycine_2_USETHIS, Alanine, Serine, Proline, Valine, Threonine = Threonine_2_USETHIS, Cysteine, Leucine, Isoleucine, Aspartate, Lysine, Glutamate, Methionine, Phenylalanine, Tryptophan, Phenol, `4.Ethylphenol`, Catechol, p.Cresol, Benzoate, Tyramine, Tyrosine, Phenylacetate, Toluate, Hydrocinnamate, Vanillin, Succinate, Palmitate, Indole.3.acetate, Indole.3.carboxaldehyde, Indole.3.propionate, Trans.indole.3.acrylate, Tryptamine, Itaconate, Desaminotyrosine, Dopamine, Histamine, Synephrine, `2.Hydroxyisocaproate`) %>% 
+        select(intersect(heatmap_cmpds, names(.))) %>% 
       column_to_rownames(., var = "sampleid") %>%
       as.matrix(.) %>%
       t(.) %>%
@@ -1859,7 +1861,7 @@ server <- function(input, output, session) {
                !str_detect(sampleid, "[Ee][Aa]_[Bb][Ll][Aa][Nn][Kk]"),
                !str_detect(sampleid, "50%[Mm][Ee][Oo][Hh]")) %>%
         drop_na(.) %>%
-        select(sampleid, Acetate, Propionate, Crotonate, Butyrate, Valerate, Hexanoate, Isobutyrate, Isovaleric.Acid, `2.Methylbutyrate`, `4.Methylvalerate`, `3.Aminoisobutyrate`,`3.Aminoisobutyrate2`, `5.Aminovalerate`, `2.Hydroxy.3.methylbutyrate`, `2.hydroxyhexanoate`, Glycine = Glycine_2_USETHIS, Alanine, Serine, Proline, Valine, Threonine = Threonine_2_USETHIS, Cysteine, Leucine, Isoleucine, Aspartate, Lysine, Glutamate, Methionine, Phenylalanine, Tryptophan, Phenol, `4.Ethylphenol`, Catechol, p.Cresol, Benzoate, Tyramine, Tyrosine, Phenylacetate, Toluate, Hydrocinnamate, Vanillin, Succinate, Palmitate, Indole.3.acetate, Indole.3.carboxaldehyde, Indole.3.propionate, Trans.indole.3.acrylate, Tryptamine, Itaconate, Desaminotyrosine, Dopamine, Histamine, Synephrine, `2.Hydroxyisocaproate`) %>% 
+        select(intersect(heatmap_cmpds, names(.))) %>% 
         column_to_rownames(., var = "sampleid") %>%
         as.matrix(.) %>%
         t(.) %>%
@@ -1878,6 +1880,7 @@ server <- function(input, output, session) {
 
   
   heatmap_data <- function()({
+    heatmap_cmpds <- c("sampleid", "Acetate", "Propionate", "Crotonate", "Butyrate", "Valerate", "Hexanoate", "Isobutyrate", "Isovaleric.Acid", "2.Methylbutyrate", "4.Methylvalerate", "3.Aminoisobutyrate","3.Aminoisobutyrate2", "5.Aminovalerate", "2.Hydroxy.3.methylbutyrate", "2.hydroxyhexanoate", "Glycine = Glycine_2_USETHIS", "Alanine", "Serine", "Proline", "Valine", "Threonine = Threonine_2_USETHIS", "Cysteine", "Leucine", "Isoleucine", "Aspartate", "Lysine", "Glutamate", "Methionine", "Phenylalanine", "Tryptophan", "Phenol", "4.Ethylphenol", "Catechol", "p.Cresol", "Benzoate", "Tyramine", "Tyrosine", "Phenylacetate", "Toluate", "Hydrocinnamate", "Vanillin", "Succinate", "Palmitate", "Indole.3.acetate", "Indole.3.carboxaldehyde", "Indole.3.propionate", "Trans.indole.3.acrylate", "Tryptamine", "Itaconate", "Desaminotyrosine", "Dopamine", "Histamine", "Synephrine", "2.Hydroxyisocaproate")
     rawdf() %>%
       left_join(conc_filter()) %>%
       filter(conc==checked, is.na(itsd),
@@ -1914,7 +1917,7 @@ server <- function(input, output, session) {
              !str_detect(sampleid, "[Ee][Aa]_[Bb][Ll][Aa][Nn][Kk]"),
              !str_detect(sampleid, "50%[Mm][Ee][Oo][Hh]")) %>%
       drop_na(.) %>%
-      select(sampleid, Acetate, Propionate, Crotonate, Butyrate, Valerate, Hexanoate, Isobutyrate, Isovaleric.Acid, `2.Methylbutyrate`, `4.Methylvalerate`, `3.Aminoisobutyrate`,`3.Aminoisobutyrate2`, `5.Aminovalerate`, `2.Hydroxy.3.methylbutyrate`, `2.hydroxyhexanoate`, Glycine = Glycine_2_USETHIS, Alanine, Serine, Proline, Valine, Threonine = Threonine_2_USETHIS, Cysteine, Leucine, Isoleucine, Aspartate, Lysine, Glutamate, Methionine, Phenylalanine, Tryptophan, Phenol, `4.Ethylphenol`, Catechol, p.Cresol, Benzoate, Tyramine, Tyrosine, Phenylacetate, Toluate, Hydrocinnamate, Vanillin, Succinate, Palmitate, Indole.3.acetate, Indole.3.carboxaldehyde, Indole.3.propionate, Trans.indole.3.acrylate, Tryptamine, Itaconate, Desaminotyrosine, Dopamine, Histamine, Synephrine, `2.Hydroxyisocaproate`) %>% 
+      select(intersect(heatmap_cmpds, names(.))) %>% 
       column_to_rownames(., var = "sampleid") %>%
       as.matrix(.) %>%
       t(.)
@@ -4899,6 +4902,8 @@ indole_rawdf2_1 <- reactive({
 
   #make heatmap:
   heatmap_plot_bile_acid <- function()({
+    bile_heatmap_cmpds <- c("sampleid", "cholic acid", "chenodeoxycholic acid", "taurocholic acid", "taurochenodeoxycholic acid", "glycocholic acid", "glycochenodeoxycholic acid", "deoxycholic acid", "lithocholic acid", "3-oxochenodeoxycholic acid", "3-deoxycholic acid", "7-oxodeoxycholic acid", "3-oxodeoxycholic acid", "isodeoxycholic acid", "3-oxolithocholic acid", "allolithocholic acid", "isolithocholic acid", "alloisolithocholic acid", "7-oxolithocholic acid", "12-oxolithocholic acid", "12-oxochenodeoxycholic acid", "glycodeoxycholic acid", "taurodeoxycholic acid", "glycolithocholic acid", "taurolithocholic acid", "ursodeoxycholic acid", "tauroursodeoxycholic acid", "glycoursodeoxycholic acid", "hyodeoxycholic acid", "taurohyodeoxycholic acid", "glycohyodeoxycholic acid", "glycodehydrocholic acid", "allocholic acid", "3-oxocholic acid", "beta-muricholic acid", "alpha-muricholic acid", "gamma-muricholic acid", "omega-muricholic acid", "tauro-alpha-muricholic acid") 
+    
     if(input$bile_cluster==F){
     rawdf_ba() %>%
       left_join(conc_filter_bile_acid()) %>%
@@ -4935,7 +4940,7 @@ indole_rawdf2_1 <- reactive({
              !str_detect(sampleid, "[Ee][Aa]_[Bb][Ll][Aa][Nn][Kk]"),
              !str_detect(sampleid, "50%[Mm][Ee][Oo][Hh]")) %>%
       drop_na(.) %>%
-        select(sampleid, `cholic acid`, `chenodeoxycholic acid`, `taurocholic acid`, `taurochenodeoxycholic acid`, `glycocholic acid`, `glycochenodeoxycholic acid`, `deoxycholic acid`, `lithocholic acid`, `3-oxochenodeoxycholic acid`, `3-deoxycholic acid`, `7-oxodeoxycholic acid`, `3-oxodeoxycholic acid`, `isodeoxycholic acid`, `3-oxolithocholic acid`, `allolithocholic acid`, `isolithocholic acid`, `alloisolithocholic acid`, `7-oxolithocholic acid`, `12-oxolithocholic acid`, `12-oxochenodeoxycholic acid`, `glycodeoxycholic acid`, `taurodeoxycholic acid`, `glycolithocholic acid`, `taurolithocholic acid`, `ursodeoxycholic acid`, `tauroursodeoxycholic acid`, `glycoursodeoxycholic acid`, `hyodeoxycholic acid`, `taurohyodeoxycholic acid`, `glycohyodeoxycholic acid`, `glycodehydrocholic acid`, `allocholic acid`, `3-oxocholic acid`, `beta-muricholic acid`, `alpha-muricholic acid`, `gamma-muricholic acid`, `omega-muricholic acid`, `tauro-alpha-muricholic acid`) %>% 
+        select(intersect(bile_heatmap_cmpds, names(.))) %>% 
       column_to_rownames(., var = "sampleid") %>%
       as.matrix(.) %>%
       t(.) %>%
@@ -4982,7 +4987,7 @@ indole_rawdf2_1 <- reactive({
                !str_detect(sampleid, "[Ee][Aa]_[Bb][Ll][Aa][Nn][Kk]"),
                !str_detect(sampleid, "50%[Mm][Ee][Oo][Hh]")) %>%
         drop_na(.) %>%
-        select(sampleid, `cholic acid`, `chenodeoxycholic acid`, `taurocholic acid`, `taurochenodeoxycholic acid`, `glycocholic acid`, `glycochenodeoxycholic acid`, `deoxycholic acid`, `lithocholic acid`, `3-oxochenodeoxycholic acid`, `3-deoxycholic acid`, `7-oxodeoxycholic acid`, `3-oxodeoxycholic acid`, `isodeoxycholic acid`, `3-oxolithocholic acid`, `allolithocholic acid`, `isolithocholic acid`, `alloisolithocholic acid`, `7-oxolithocholic acid`, `12-oxolithocholic acid`, `12-oxochenodeoxycholic acid`, `glycodeoxycholic acid`, `taurodeoxycholic acid`, `glycolithocholic acid`, `taurolithocholic acid`, `ursodeoxycholic acid`, `tauroursodeoxycholic acid`, `glycoursodeoxycholic acid`, `hyodeoxycholic acid`, `taurohyodeoxycholic acid`, `glycohyodeoxycholic acid`, `glycodehydrocholic acid`, `allocholic acid`, `3-oxocholic acid`, `beta-muricholic acid`, `alpha-muricholic acid`, `gamma-muricholic acid`, `omega-muricholic acid`, `tauro-alpha-muricholic acid`) %>% 
+        select(intersect(bile_heatmap_cmpds, names(.))) %>% 
         column_to_rownames(., var = "sampleid") %>%
         as.matrix(.) %>%
         t(.) %>%
@@ -5000,6 +5005,9 @@ indole_rawdf2_1 <- reactive({
   )
 
   heatmap_data_bile_acid <- function()({
+    
+    bile_heatmap_cmpds <- c("sampleid", "cholic acid", "chenodeoxycholic acid", "taurocholic acid", "taurochenodeoxycholic acid", "glycocholic acid", "glycochenodeoxycholic acid", "deoxycholic acid", "lithocholic acid", "3-oxochenodeoxycholic acid", "3-deoxycholic acid", "7-oxodeoxycholic acid", "3-oxodeoxycholic acid", "isodeoxycholic acid", "3-oxolithocholic acid", "allolithocholic acid", "isolithocholic acid", "alloisolithocholic acid", "7-oxolithocholic acid", "12-oxolithocholic acid", "12-oxochenodeoxycholic acid", "glycodeoxycholic acid", "taurodeoxycholic acid", "glycolithocholic acid", "taurolithocholic acid", "ursodeoxycholic acid", "tauroursodeoxycholic acid", "glycoursodeoxycholic acid", "hyodeoxycholic acid", "taurohyodeoxycholic acid", "glycohyodeoxycholic acid", "glycodehydrocholic acid", "allocholic acid", "3-oxocholic acid", "beta-muricholic acid", "alpha-muricholic acid", "gamma-muricholic acid", "omega-muricholic acid", "tauro-alpha-muricholic acid") 
+    
     rawdf_ba() %>%
       left_join(conc_filter_bile_acid()) %>%
       replace_na(list(checked="concentrated")) %>%
@@ -5035,7 +5043,7 @@ indole_rawdf2_1 <- reactive({
              !str_detect(sampleid, "[Ee][Aa]_[Bb][Ll][Aa][Nn][Kk]"),
              !str_detect(sampleid, "50%[Mm][Ee][Oo][Hh]")) %>%
       drop_na(.) %>%
-      select(sampleid, `cholic acid`, `chenodeoxycholic acid`, `taurocholic acid`, `taurochenodeoxycholic acid`, `glycocholic acid`, `glycochenodeoxycholic acid`, `deoxycholic acid`, `lithocholic acid`, `3-oxochenodeoxycholic acid`, `3-deoxycholic acid`, `7-oxodeoxycholic acid`, `3-oxodeoxycholic acid`, `isodeoxycholic acid`, `3-oxolithocholic acid`, `allolithocholic acid`, `isolithocholic acid`, `alloisolithocholic acid`, `7-oxolithocholic acid`, `12-oxolithocholic acid`, `12-oxochenodeoxycholic acid`, `glycodeoxycholic acid`, `taurodeoxycholic acid`, `glycolithocholic acid`, `taurolithocholic acid`, `ursodeoxycholic acid`, `tauroursodeoxycholic acid`, `glycoursodeoxycholic acid`, `hyodeoxycholic acid`, `taurohyodeoxycholic acid`, `glycohyodeoxycholic acid`, `glycodehydrocholic acid`, `allocholic acid`, `3-oxocholic acid`, `beta-muricholic acid`, `alpha-muricholic acid`, `gamma-muricholic acid`, `omega-muricholic acid`, `tauro-alpha-muricholic acid`) %>% 
+      select(intersect(bile_heatmap_cmpds, names(.))) %>% 
       column_to_rownames(., var = "sampleid") %>%
       as.matrix(.) %>%
       t(.)
