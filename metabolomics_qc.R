@@ -388,7 +388,7 @@ wddir <- "/Volumes/chaubard-lab/shiny_workspace/csvs/"
 ui <- fluidPage(
   shinythemes::themeSelector(),
   shinytheme("journal"),
-  titlePanel("DFI Metabolomics QC (v1.8.17)"),
+  titlePanel("DFI Metabolomics QC (v1.8.18)"),
   br(),
   
   # CSV file selector -------------------------------------------------------
@@ -1029,7 +1029,7 @@ server <- function(input, output, session) {
     input$downloadData,
     {
     write.csv(quant_table_dl(), 
-              paste0("/Volumes/chaubard-lab/shiny_workspace/CLIN_Finals_QCs/quant_results_",
+              paste0("/Volumes/chaubard-lab/shiny_workspace/Final_Shiny_CSVs_Plus_QCs/quant_results_",
                                 gsub("\\.csv","",input$filename),"_",
                                 gsub("\\-","",Sys.Date()),".csv"), row.names=F,quote=F)
     write.csv(quant_table_dl() %>% filter(!str_detect(sampleid, "[Mm][Bb]"),
@@ -1042,7 +1042,7 @@ server <- function(input, output, session) {
                                           !str_detect(sampleid, "[Ee][Aa]_[Bb][Ll][Aa][Nn][Kk]"),
                                           !str_detect(sampleid, "50%[Mm][Ee][Oo][Hh]"),
                                           !grepl("CC[0-9]+", sampleid)), 
-              paste0("/Volumes/chaubard-lab/shiny_workspace/CLIN_Finals/removed_qcs_quant_results_",
+              paste0("/Volumes/chaubard-lab/shiny_workspace/Final_Shiny_CSVs/removed_qcs_quant_results_",
                      gsub("\\.csv","",input$filename), "_",
                      gsub("\\-","",Sys.Date()),".csv"), row.names=F,quote=F)
     } 
@@ -2572,7 +2572,7 @@ server <- function(input, output, session) {
     input$downloadData3,
     {
       write.csv(quant_table_dl2(), 
-                paste0("/Volumes/chaubard-lab/shiny_workspace/CLIN_Finals_QCs/quant_results_",
+                paste0("/Volumes/chaubard-lab/shiny_workspace/Final_Shiny_CSVs_Plus_QCs/quant_results_",
                        gsub("\\.csv","",input$filename),"_",
                        gsub("\\-","",Sys.Date()),".csv"), row.names=F,quote=F)
       write.csv(quant_table_dl2() %>% filter(!str_detect(sampleid, "[Mm][Bb]"),
@@ -2585,7 +2585,7 @@ server <- function(input, output, session) {
                                              !str_detect(sampleid, "[Ee][Aa]_[Bb][Ll][Aa][Nn][Kk]"),
                                              !str_detect(sampleid, "50%[Mm][Ee][Oo][Hh]"),
                                             !grepl("CC[0-9]+", sampleid)), 
-                paste0("/Volumes/chaubard-lab/shiny_workspace/CLIN_Finals/removed_qcs_quant_results_",
+                paste0("/Volumes/chaubard-lab/shiny_workspace/Final_Shiny_CSVs/removed_qcs_quant_results_",
                        gsub("\\.csv","",input$filename), "_",
                        gsub("\\-","",Sys.Date()),".csv"), row.names=F,quote=F)
     } 
@@ -4102,7 +4102,7 @@ indole_rawdf2_1 <- reactive({
     input$downloadData5,
     {
       write.csv(quant_table_dl5(), 
-                paste0("/Volumes/chaubard-lab/shiny_workspace/CLIN_Finals_QCs/quant_results_",
+                paste0("/Volumes/chaubard-lab/shiny_workspace/Final_Shiny_CSVs_Plus_QCs/quant_results_",
                        gsub("\\.csv","",input$filename),"_",
                        gsub("\\-","",Sys.Date()),".csv"), row.names=F,quote=F)
       write.csv(quant_table_dl5() %>% filter(!str_detect(sampleid, "[Mm][Bb]"),
@@ -4115,7 +4115,7 @@ indole_rawdf2_1 <- reactive({
                                              !str_detect(sampleid, "[Ee][Aa]_[Bb][Ll][Aa][Nn][Kk]"),
                                              !str_detect(sampleid, "50%[Mm][Ee][Oo][Hh]"),
                                             !grepl("CC[0-9]+", sampleid)), 
-                paste0("/Volumes/chaubard-lab/shiny_workspace/CLIN_Finals/removed_qcs_quant_results_",
+                paste0("/Volumes/chaubard-lab/shiny_workspace/Final_Shiny_CSVs/removed_qcs_quant_results_",
                        gsub("\\.csv","",input$filename), "_",
                        gsub("\\-","",Sys.Date()),".csv"), row.names=F,quote=F)
     } 
@@ -6288,7 +6288,7 @@ indole_rawdf2_1 <- reactive({
     
   if (input$method == "PFBBr") {
     finals_paths <- reactive({
-      list.files(path = "/Volumes/chaubard-lab/shiny_workspace/CLIN_Finals_QCs/",
+      list.files(path = "/Volumes/chaubard-lab/shiny_workspace/Final_Shiny_CSVs_Plus_QCs/",
                  pattern = paste0("quant_results_[0-9]+_",input$method,"_\\w+.csv"), full.names = TRUE)
     })
     
@@ -6420,7 +6420,7 @@ return(p())
 
   } else if (input$method == "Indole") {
     finals_paths <- reactive({
-      list.files(path = "/Volumes/chaubard-lab/shiny_workspace/CLIN_Finals_QCs/",
+      list.files(path = "/Volumes/chaubard-lab/shiny_workspace/Final_Shiny_CSVs_Plus_QCs/",
                  pattern = paste0("quant_results_[0-9]+_",input$method,"_\\w+.csv"), full.names = TRUE)
     })
     
@@ -6554,7 +6554,7 @@ return(p())
   } else {
     
     finals_paths <- reactive({
-      list.files(path = "/Volumes/chaubard-lab/shiny_workspace/CLIN_Finals_QCs/",
+      list.files(path = "/Volumes/chaubard-lab/shiny_workspace/Final_Shiny_CSVs_Plus_QCs/",
                  pattern = paste0("quant_results_[0-9]+_",input$method,"_\\w+.csv"), full.names = TRUE)
     })
     
