@@ -101,7 +101,7 @@ get_all_conc <- function(compounds,starting_cons,series=8,fold=2){
   return(cc)
 }
 
-readin_meta_csv <- function(directory,na.value=0,recursive=F){
+readin_meta_csv <- function(directory,na.value=0,na.replacement=0,recursive=F){
   print(paste("looking in",directory))
   setwd(as.character(directory))
   files <- dir(pattern="csv$",recursive = recursive)
@@ -146,7 +146,7 @@ readin_meta_csv <- function(directory,na.value=0,recursive=F){
         select(sampleid,Data.File,Acq.Date.Time,compound,
                compound_name,conc,itsd,peakarea,status,filename) %>%
         mutate(peakarea=as.numeric(peakarea),
-               peakarea=ifelse(peakarea < na.value,1,peakarea))
+               peakarea=ifelse(peakarea <= na.value,na.replacement,peakarea))
       
       dflist[[i]] <- int
     }
@@ -157,7 +157,7 @@ readin_meta_csv <- function(directory,na.value=0,recursive=F){
   }
 }
 
-readin_meta_csv_single_file <- function(filename,na.value=0,recursive=F){
+readin_meta_csv_single_file <- function(filename,na.value=0,na.replacement=0, recursive=F){
   
   int <- read.csv(file=filename,
                   stringsAsFactors = F) %>%
@@ -191,7 +191,7 @@ readin_meta_csv_single_file <- function(filename,na.value=0,recursive=F){
     select(sampleid,Data.File,Acq.Date.Time,compound,
            compound_name,conc,itsd,peakarea,status,filename) %>%
     mutate(peakarea=as.numeric(peakarea),
-           peakarea=ifelse(peakarea < na.value,1,peakarea),
+           peakarea=ifelse(peakarea <= na.value,na.replacement,peakarea),
            compound_name=ifelse(grepl("[0-9]",compound_name),
                                 gsub("^X","",compound_name),compound_name))
   
@@ -199,7 +199,7 @@ readin_meta_csv_single_file <- function(filename,na.value=0,recursive=F){
   return(meta)
 }
 
-readin_meta_csv_single_file_tms <- function(filename,na.value=0,recursive=F){
+readin_meta_csv_single_file_tms <- function(filename,na.value=0,na.replacement=0,recursive=F){
   
   int <- read.csv(file=filename,
                   stringsAsFactors = F) %>%
@@ -233,7 +233,7 @@ readin_meta_csv_single_file_tms <- function(filename,na.value=0,recursive=F){
     select(sampleid,Data.File,Acq.Date.Time,compound,
            compound_name,conc,itsd,peakarea,status,filename) %>%
     mutate(peakarea=as.numeric(peakarea),
-           peakarea=ifelse(peakarea < na.value,1,peakarea),
+           peakarea=ifelse(peakarea <= na.value,na.replacement,peakarea),
            compound_name=ifelse(grepl("[0-9]",compound_name),
                                 gsub("^X","",compound_name),compound_name),
            compound_name = gsub("\\.", "_", compound_name))
@@ -339,7 +339,7 @@ get_indole_conc <- function(conc, compounds,series=11){
   return(indole_conc)
 }
 
-readin_bile_csv_single_file <- function(filename,na.value=0,recursive=F){
+readin_bile_csv_single_file <- function(filename,na.value=0,na.replacement=0,recursive=F){
   
   #filename="bile_acid_test.csv"
   #na.value=0
@@ -365,7 +365,7 @@ readin_bile_csv_single_file <- function(filename,na.value=0,recursive=F){
            compound_name=tolower(compound_name),
            conc=ifelse(grepl("dil",conc),"diluted","concentrated"),
            peakarea=as.numeric(peakarea),
-           peakarea=ifelse(peakarea < na.value,1,peakarea))
+           peakarea=ifelse(peakarea <= na.value,na.replacement,peakarea))
   
   
   return(int)
@@ -388,7 +388,7 @@ wddir <- "/Volumes/chaubard-lab/shiny_workspace/csvs/"
 ui <- fluidPage(
   shinythemes::themeSelector(),
   shinytheme("journal"),
-  titlePanel("DFI Metabolomics QC (v1.8.18)"),
+  titlePanel("DFI Metabolomics QC (v1.8.19)"),
   br(),
   
   # CSV file selector -------------------------------------------------------
@@ -869,7 +869,7 @@ server <- function(input, output, session) {
   
   
   # read in table as reactive 
-  meta <- reactive({ readin_meta_csv_single_file(file.path(wddir,input$filename),na.value = input$quant_zero_val)})
+  meta <- reactive({ readin_meta_csv_single_file(file.path(wddir,input$filename),na.value = input$quant_zero_val, na.replacement = input$quant_zero_val)})
 
   #show models and make plots
   modelstart <- reactive({
@@ -1699,7 +1699,7 @@ server <- function(input, output, session) {
   # PFBBr normalization tab -------------------------------------------------------
 
   rawdf <- reactive({
-    readin_meta_csv_single_file(file.path(wddir,input$filename),na.value = input$zero_val)
+    readin_meta_csv_single_file(file.path(wddir,input$filename),na.value = input$zero_val, na.replacement = input$zero_val)
   })
   
   output$dfcheck <- renderDataTable(
@@ -2379,7 +2379,7 @@ server <- function(input, output, session) {
 
 
   # read in table as reactive
-  indole_meta <- reactive({ readin_meta_csv_single_file(file.path(wddir,input$filename), na.value = input$quant_zero_val2) })
+  indole_meta <- reactive({ readin_meta_csv_single_file(file.path(wddir,input$filename), na.value = input$quant_zero_val2, na.replacement = input$quant_zero_val2) })
 
   #show models and make plots
   modelstart2 <- reactive({
@@ -3340,7 +3340,7 @@ server <- function(input, output, session) {
 # Indole normalization tab -------------------------------------------------------
 
   indole_rawdf <- reactive({
-  readin_meta_csv_single_file(file.path(wddir,input$filename),na.value = input$zero_val2)
+  readin_meta_csv_single_file(file.path(wddir,input$filename),na.value = input$zero_val2, na.replacement = input$zero_val2)
 })
 
   indole_csv <- reactive({
@@ -3969,7 +3969,7 @@ indole_rawdf2_1 <- reactive({
   )
 
   # read in table as reactive
-  meta5 <- reactive({ readin_bile_csv_single_file(file.path(wddir,input$filename), na.value = input$quant_zero_val_bile_acid) })
+  meta5 <- reactive({ readin_bile_csv_single_file(file.path(wddir,input$filename), na.value = input$quant_zero_val_bile_acid, na.replacement = input$quant_zero_val_bile_acid) })
 
   #show models and make plots
   modelstart5 <- reactive({
@@ -4829,7 +4829,7 @@ indole_rawdf2_1 <- reactive({
   # Bile acid normalization tab -------------------------------------------------------
 
   rawdf_ba <- reactive({
-    readin_bile_csv_single_file(file.path(wddir,input$filename),na.value = input$zero_val_bile_acid)
+    readin_bile_csv_single_file(file.path(wddir,input$filename),na.value = input$zero_val_bile_acid, na.replacement = input$zero_val_bile_acid)
   })
 
   csv_ba <- reactive({
@@ -5436,7 +5436,7 @@ indole_rawdf2_1 <- reactive({
   # TMS normalization tab -------------------------------------------------------
   
   rawdf_tms <- reactive({
-    readin_meta_csv_single_file_tms(file.path(wddir,input$filename),na.value = input$zero_val_tms)
+    readin_meta_csv_single_file_tms(file.path(wddir,input$filename),na.value = input$zero_val_tms, na.replacement = input$zero_val_tms)
   })
   
   # This generates a list of all compounds except for the internal standards
