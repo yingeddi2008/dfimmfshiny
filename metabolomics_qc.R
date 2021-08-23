@@ -388,7 +388,7 @@ wddir <- "/Volumes/chaubard-lab/shiny_workspace/csvs/"
 ui <- fluidPage(
   shinythemes::themeSelector(),
   shinytheme("journal"),
-  titlePanel("DFI Metabolomics QC (v1.8.19)"),
+  titlePanel("DFI Metabolomics QC (v1.9)"),
   br(),
   
   # CSV file selector -------------------------------------------------------
@@ -869,7 +869,7 @@ server <- function(input, output, session) {
   
   
   # read in table as reactive 
-  meta <- reactive({ readin_meta_csv_single_file(file.path(wddir,input$filename),na.value = input$quant_zero_val, na.replacement = input$quant_zero_val)})
+  meta <- reactive({ readin_meta_csv_single_file(file.path(wddir,input$filename), na.value = input$quant_zero_val, na.replacement = 0)})
 
   #show models and make plots
   modelstart <- reactive({
@@ -2379,7 +2379,7 @@ server <- function(input, output, session) {
 
 
   # read in table as reactive
-  indole_meta <- reactive({ readin_meta_csv_single_file(file.path(wddir,input$filename), na.value = input$quant_zero_val2, na.replacement = input$quant_zero_val2) })
+  indole_meta <- reactive({ readin_meta_csv_single_file(file.path(wddir,input$filename), na.value = input$quant_zero_val2, na.replacement = 0) })
 
   #show models and make plots
   modelstart2 <- reactive({
@@ -3969,7 +3969,7 @@ indole_rawdf2_1 <- reactive({
   )
 
   # read in table as reactive
-  meta5 <- reactive({ readin_bile_csv_single_file(file.path(wddir,input$filename), na.value = input$quant_zero_val_bile_acid, na.replacement = input$quant_zero_val_bile_acid) })
+  meta5 <- reactive({ readin_bile_csv_single_file(file.path(wddir,input$filename), na.value = input$quant_zero_val_bile_acid, na.replacement = 0) })
 
   #show models and make plots
   modelstart5 <- reactive({
