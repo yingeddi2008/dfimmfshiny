@@ -388,7 +388,7 @@ wddir <- "/Volumes/chaubard-lab/shiny_workspace/csvs/"
 ui <- fluidPage(
   shinythemes::themeSelector(),
   shinytheme("journal"),
-  titlePanel("DFI Metabolomics QC (v1.9)"),
+  titlePanel("DFI Metabolomics QC (v1.9.1)"),
   br(),
   
   # CSV file selector -------------------------------------------------------
@@ -990,10 +990,11 @@ server <- function(input, output, session) {
              quant_val = round(quant_val,2))
   })
   
+  
   output$quant_tbl <- renderDataTable(
     quant_table() %>%
       datatable() %>%
-      formatRound(c(4:ncol(quant_table())), 3) %>% 
+      formatRound(c(4:ncol(quant_table())), 3) %>%
       formatStyle(columns = c(4:ncol(quant_table())), 'text-align' = 'center')
   )
   
@@ -1019,7 +1020,11 @@ server <- function(input, output, session) {
       separate(sampleid,into=c("num","date","batch","sampleid","conc"),
                sep="\\_\\_") %>%
       arrange(num) %>%
-      select(-num,-date,-batch,-conc)
+      select(-num,-date,-batch,-conc) %>% 
+      pivot_longer(!sampleid, names_to = "compound_name", values_to = "quant_val") %>% 
+      group_by(sampleid, compound_name) %>%
+      dplyr::slice(which.max(quant_val)) %>% 
+      pivot_wider(names_from = "compound_name", values_from = "quant_val")
     
   })
   
@@ -2562,7 +2567,11 @@ server <- function(input, output, session) {
       separate(Data.File,into=c("num","date","batch","sampleid","conc"),
                sep="\\_\\_") %>%
       arrange(num) %>%
-      select(-num,-date,-batch,-conc)
+      select(-num,-date,-batch,-conc) %>% 
+      pivot_longer(!sampleid, names_to = "compound_name", values_to = "quant_val") %>% 
+      group_by(sampleid, compound_name) %>%
+      dplyr::slice(which.max(quant_val)) %>% 
+      pivot_wider(names_from = "compound_name", values_from = "quant_val")
 
 
   })
@@ -4064,9 +4073,9 @@ indole_rawdf2_1 <- reactive({
 
   output$quant_tbl5 <- renderDataTable(
     quant_table5() %>%
-      datatable() #%>%
-    # formatRound(c(4:ncol(quant_table5())), 3) %>%
-    # formatStyle(columns = c(4:ncol(quant_table5())), 'text-align' = 'center')
+      datatable() %>%
+    formatRound(c(4:ncol(quant_table5())), 3) %>%
+    formatStyle(columns = c(4:ncol(quant_table5())), 'text-align' = 'center')
   )
 
   quant_table_dl5 <- function()({
@@ -4090,10 +4099,14 @@ indole_rawdf2_1 <- reactive({
       arrange(compound_name) %>%
       mutate(quant_val = ifelse(quant_val < 0,0,quant_val),
              quant_val = round(quant_val,2)) %>%
-      reshape2::dcast(sampleid ~ compound_name, value.var="quant_val",fill=0) #%>%
+      reshape2::dcast(sampleid ~ compound_name, value.var="quant_val",fill=0) %>%
     #separate(Data.File,into=c("num","date_run","batch","sampleid","conc"),sep="\\_\\_") %>%
     #arrange(num) %>%
     #select(-num,-date_run,-batch,-conc)
+    pivot_longer(!sampleid, names_to = "compound_name", values_to = "quant_val") %>% 
+      group_by(sampleid, compound_name) %>%
+      dplyr::slice(which.max(quant_val)) %>% 
+      pivot_wider(names_from = "compound_name", values_from = "quant_val")
 
   })
   
