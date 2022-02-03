@@ -6746,7 +6746,7 @@ server <- function(input, output, session) {
 # run app -----------------------------------------------------------------
 
 # Run locally
-# shinyApp(ui, server)
+shinyApp(ui, server)
 
 # Run on supermac
-runApp(list(ui=ui,server=server),host="0.0.0.0",port=5000)
+# runApp(list(ui=ui,server=server),host="0.0.0.0",port=5000)
