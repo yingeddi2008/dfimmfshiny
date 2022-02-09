@@ -388,7 +388,7 @@ wddir <- "/Volumes/chaubard-lab/shiny_workspace/csvs/"
 ui <- fluidPage(
   shinythemes::themeSelector(),
   shinytheme("journal"),
-  titlePanel("DFI Metabolomics QC (v1.9.2)"),
+  titlePanel("DFI Metabolomics QC (v1.9.3)"),
   br(),
   
   # CSV file selector -------------------------------------------------------
@@ -2095,7 +2095,7 @@ server <- function(input, output, session) {
   output$downloadData2 <- downloadHandler(
     
     filename = function(){
-      paste0(norm_wide_tbl_label(),input$filename,"_",Sys.Date(),".csv")
+      paste0(norm_wide_tbl_label(),gsub("\\.csv","",input$filename),"_", format(Sys.Date(),format="%Y%m%d"),".csv")
     },
     
     content = function(file) {
@@ -3668,7 +3668,7 @@ server <- function(input, output, session) {
   output$downloadData4 <- downloadHandler(
     
     filename = function(){
-      paste0(normwide2_label(),input$filename,"_",Sys.Date(),".csv")
+      paste0(normwide2_label(),gsub("\\.csv","",input$filename),"_", format(Sys.Date(),format="%Y%m%d"),".csv")
     },
     
     content = function(file) {
@@ -5205,7 +5205,7 @@ server <- function(input, output, session) {
   output$downloadData_bile_acid <- downloadHandler(
     
     filename = function(){
-      paste0(norm_wide_tbl_label_bile_acid(),input$filename,"_",Sys.Date(),".csv")
+      paste0(norm_wide_tbl_label_bile_acid(),gsub("\\.csv","",input$filename),"_", format(Sys.Date(),format="%Y%m%d"),".csv")
     },
     
     content = function(file) {
@@ -5788,7 +5788,7 @@ server <- function(input, output, session) {
   output$downloadData_tms <- downloadHandler(
     
     filename = function(){
-      paste0(norm_wide_tbl_label_tms(),input$filename,"_",Sys.Date(),".csv")
+      paste0(norm_wide_tbl_label_tms(),gsub("\\.csv","",input$filename),"_", format(Sys.Date(),format="%Y%m%d"),".csv")
     },
     
     content = function(file) {
